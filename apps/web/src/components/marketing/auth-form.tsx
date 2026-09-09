@@ -6,8 +6,6 @@ import { useEffect, useState } from "react";
 import { MarketingChrome } from "@/components/marketing/marketing-chrome";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import ElectricBorder from "@/components/react-bits/ElectricBorder";
-import ShinyText from "@/components/react-bits/ShinyText";
 import { useAuthStore } from "@/stores/auth-store";
 
 type Mode = "login" | "signup";
@@ -67,106 +65,92 @@ export function AuthForm({ mode }: { mode: Mode }) {
 
   return (
     <MarketingChrome>
-      <main id="main-content" className="mx-auto flex w-full max-w-md flex-col px-5 pb-20 pt-6">
-        <ShinyText
-          text={mode === "login" ? "Welcome back" : "Join the control plane"}
-          className="text-center text-xs uppercase tracking-[0.18em]"
-          color="#9b9ba8"
-          shineColor="#ffffff"
-          speed={3}
-        />
-        <h1 className="mt-3 text-center text-2xl font-semibold tracking-tight">{title}</h1>
-        <p className="mt-2 text-center text-xs leading-relaxed text-muted-foreground">
+      <main id="main-content" className="mx-auto flex w-full max-w-md flex-col px-5 pb-20 pt-16">
+        <p className="text-center text-[12px] uppercase tracking-[0.2em] text-white/40">
+          {mode === "login" ? "Welcome back" : "Get started"}
+        </p>
+        <h1 className="mt-3 text-center font-serif text-4xl tracking-tight text-white">{title}</h1>
+        <p className="mt-3 text-center text-sm leading-relaxed text-white/50">
           Accounts are stored in this browser only — a local demo session for the SRE console.
         </p>
 
-        <ElectricBorder
-          color="#8b7cf6"
-          speed={1.1}
-          chaos={0.08}
-          borderRadius={20}
-          className="mt-8"
+        <form
+          onSubmit={onSubmit}
+          className="mt-8 space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur"
         >
-          <form
-            onSubmit={onSubmit}
-            className="space-y-3 rounded-[20px] bg-card/90 p-6 backdrop-blur"
-          >
-            {mode === "signup" ? (
-              <label className="block space-y-1.5">
-                <span className="text-[11px] font-medium text-muted-foreground">Name</span>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  autoComplete="name"
-                  className="h-10 bg-background/70"
-                  required
-                />
-              </label>
-            ) : null}
+          {mode === "signup" ? (
             <label className="block space-y-1.5">
-              <span className="text-[11px] font-medium text-muted-foreground">Email</span>
+              <span className="text-[11px] font-medium text-white/45">Name</span>
               <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-                className="h-10 bg-background/70"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoComplete="name"
+                className="h-10 bg-black/40"
                 required
               />
             </label>
+          ) : null}
+          <label className="block space-y-1.5">
+            <span className="text-[11px] font-medium text-white/45">Email</span>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              className="h-10 bg-black/40"
+              required
+            />
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-[11px] font-medium text-white/45">Password</span>
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete={mode === "login" ? "current-password" : "new-password"}
+              className="h-10 bg-black/40"
+              minLength={8}
+              required
+            />
+          </label>
+          {mode === "signup" ? (
             <label className="block space-y-1.5">
-              <span className="text-[11px] font-medium text-muted-foreground">Password</span>
+              <span className="text-[11px] font-medium text-white/45">Confirm password</span>
               <Input
                 type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete={mode === "login" ? "current-password" : "new-password"}
-                className="h-10 bg-background/70"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                autoComplete="new-password"
+                className="h-10 bg-black/40"
                 minLength={8}
                 required
               />
             </label>
-            {mode === "signup" ? (
-              <label className="block space-y-1.5">
-                <span className="text-[11px] font-medium text-muted-foreground">
-                  Confirm password
-                </span>
-                <Input
-                  type="password"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  autoComplete="new-password"
-                  className="h-10 bg-background/70"
-                  minLength={8}
-                  required
-                />
-              </label>
-            ) : null}
+          ) : null}
 
-            {error ? (
-              <p role="alert" className="text-xs text-status-critical">
-                {error}
-              </p>
-            ) : null}
+          {error ? (
+            <p role="alert" className="text-xs text-status-critical">
+              {error}
+            </p>
+          ) : null}
 
-            <Button type="submit" className="cursor-target h-10 w-full" disabled={pending}>
-              {cta}
-            </Button>
-          </form>
-        </ElectricBorder>
+          <Button type="submit" className="h-10 w-full rounded-full" disabled={pending}>
+            {cta}
+          </Button>
+        </form>
 
-        <p className="mt-5 text-center text-xs text-muted-foreground">
+        <p className="mt-5 text-center text-xs text-white/45">
           {mode === "login" ? (
             <>
               No account yet?{" "}
-              <Link href="/signup" className="text-ai hover:underline">
+              <Link href="/signup" className="text-white hover:underline">
                 Create one
               </Link>
             </>
           ) : (
             <>
               Already have an account?{" "}
-              <Link href="/login" className="text-ai hover:underline">
+              <Link href="/login" className="text-white hover:underline">
                 Sign in
               </Link>
             </>
