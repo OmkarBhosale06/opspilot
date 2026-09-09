@@ -9,6 +9,6 @@ export async function listNamespaces() {
   >("/api/namespaces");
   const items = Array.isArray(res) ? res : res.items;
   return items.map((n) =>
-    typeof n === "string" ? { name: n } : { name: n.name, ...n }
+    typeof n === "string" ? { name: n } : n
   ) as NamespaceDto[];
 }

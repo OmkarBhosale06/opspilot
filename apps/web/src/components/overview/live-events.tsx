@@ -10,9 +10,11 @@ import { cn } from "@/lib/utils";
 export function LiveEvents({
   events,
   live = false,
+  error,
 }: {
   events: K8sEventDto[];
   live?: boolean;
+  error?: string;
 }) {
   return (
     <Card className="h-full">
@@ -26,7 +28,10 @@ export function LiveEvents({
         ) : null}
       </CardHeader>
       <CardContent className="space-y-1.5">
-        {events.length === 0 ? (
+        {error ? (
+          <p className="text-xs text-status-warning">{error}</p>
+        ) : null}
+        {events.length === 0 && !error ? (
           <EmptyState
             title="No recent events"
             description="Cluster events will stream here when available."

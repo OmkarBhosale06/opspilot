@@ -4,51 +4,65 @@ import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/layout/page-header";
 import { InfraGraph } from "@/components/infrastructure/infra-graph";
-import { ErrorState, LoadingBlock } from "@/components/ui/states";
+import { ErrorState, LoadingBlock, EmptyState } from "@/components/ui/states";
 import { listDeployments } from "@/services/deployments";
 import { listPods } from "@/services/pods";
-import { getOverview } from "@/services/overview";
+import { listNamespaces } from "@/services/namespaces";
+import { getHealth } from "@/services/health";
 import { ApiError } from "@/lib/api";
 
-export default function InfraGraphPage() {
-  const overview = useQuery({ queryKey: ["overview"], queryFn: getOverview });
+export default function GraphPage() {
+  const health = useQuery({ queryKey: ["health"], queryFn: getHealth });
+  const namespaces = useQuery({
+    queryKey: ["namespaces"],
+    queryFn: listNamespaces,
+    retry: false,
+  });
   const deployments = useQuery({
     queryKey: ["deployments"],
     queryFn: () => listDeployments(),
+    retry: false,
   });
   const pods = useQuery({
     queryKey: ["pods"],
     queryFn: () => listPods(),
+    retry: false,
   });
 
   const loading =
-    overview.isLoading || deployments.isLoading || pods.isLoading;
-  const err = overview.error || deployments.error || pods.error;
+    deployments.isLoading || pods.isLoading || namespaces.isLoading;
+  const error = deployments.error ?? pods.error ?? namespaces.error;
 
   return (
-    <AppShell
-      title="Infrastructure graph"
-      breadcrumb={<span>Infrastructure / Graph</span>}
-    >
+    <AppShell title="Infrastructure graph">
       <PageHeader
-        title="Dependency graph"
-        description="Cluster → Namespace → Deployment → Pods → Service with health colors."
+        title="Infrastructure graph"
+        description="Cluster → namespace → deployment → pods, colored by health."
       />
-      {loading ? <LoadingBlock rows={6} /> : null}
-      {err ? (
+      {loading ? <LoadingBlock /> : null}
+      {error ? (
         <ErrorState
           title="Graph data unavailable"
           description={
-            err instanceof ApiError
-              ? err.message
-              : "Unable to load cluster topology."
+            error instanceof ApiError
+              ? error.message
+              : "Connect Kind so the graph can be built from live objects."
           }
         />
       ) : null}
-      {!loading && !err ? (
+      {!error &&
+      (deployments.data?.length ?? 0) === 0 &&
+      (pods.data?.length ?? 0) === 0 ? (
+        <EmptyState
+          title="Nothing to graph"
+          description="No deployments or pods in the default namespace."
+        />
+      ) : null}
+      {!error &&
+      ((deployments.data?.length ?? 0) > 0 || (pods.data?.length ?? 0) > 0) ? (
         <InfraGraph
-          clusterId={overview.data?.cluster ?? "kind-opspilot"}
-          namespace={overview.data?.namespace ?? "opspilot"}
+          clusterId={health.data?.cluster ?? "kind-opspilot"}
+          namespaces={namespaces.data ?? [{ name: "opspilot" }]}
           deployments={deployments.data ?? []}
           pods={pods.data ?? []}
         />
