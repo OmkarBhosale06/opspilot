@@ -149,7 +149,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
               </p>
             ) : null}
 
-            <Button type="submit" className="h-10 w-full" disabled={pending}>
+            <Button type="submit" className="cursor-target h-10 w-full" disabled={pending}>
               {cta}
             </Button>
           </form>
