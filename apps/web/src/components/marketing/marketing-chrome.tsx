@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/stores/auth-store";
-import DarkVeil from "@/components/react-bits/DarkVeil";
+import Threads from "@/components/react-bits/Threads";
 
 const NAV = [
   { href: "/#how-it-works", label: "How it works" },
@@ -29,21 +29,23 @@ export function MarketingChrome({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#050506] text-foreground">
-      {!reduceMotion ? (
-        <div className="pointer-events-none fixed inset-0 opacity-40" aria-hidden>
-          <DarkVeil
-            hueShift={220}
-            noiseIntensity={0.06}
-            scanlineIntensity={0.02}
-            scanlineFrequency={0.4}
-            warpAmount={0.18}
-            speed={0.28}
-          />
-        </div>
-      ) : null}
+      <div className="pointer-events-none fixed inset-0" aria-hidden>
+        {!reduceMotion ? (
+          <div className="absolute inset-0">
+            <Threads
+              color={[0.78, 0.74, 1]}
+              amplitude={1.8}
+              distance={0.18}
+              enableMouseInteraction
+            />
+          </div>
+        ) : (
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(139,124,246,0.22),transparent_58%)]" />
+        )}
+      </div>
       <div className="marketing-grain" aria-hidden />
       <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.06),transparent_42%),linear-gradient(to_bottom,rgba(5,5,6,0.2),#050506_72%)]"
+        className="pointer-events-none fixed inset-0 z-[2] bg-[linear-gradient(to_bottom,rgba(5,5,6,0.2)_0%,transparent_28%,rgba(5,5,6,0.45)_100%)]"
         aria-hidden
       />
 
