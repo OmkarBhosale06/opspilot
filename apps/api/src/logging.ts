@@ -1,6 +1,17 @@
 import { randomUUID } from "node:crypto";
+import { createRequire } from "node:module";
 import type { FastifyServerOptions } from "fastify";
 import type { Config } from "./config/env.js";
+
+const require = createRequire(import.meta.url);
+
+function prettyTransportTarget(): string | undefined {
+  try {
+    return require.resolve("pino-pretty");
+  } catch {
+    return undefined;
+  }
+}
 
 export type AppLogger = {
   info: (obj: object, msg?: string) => void;
@@ -20,7 +31,8 @@ export function summarizeUrl(url: string, max = 240): string {
 }
 
 export function loggerOptions(config: Config): FastifyServerOptions["logger"] {
-  const pretty = config.NODE_ENV === "development";
+  const prettyTarget =
+    config.NODE_ENV === "development" ? prettyTransportTarget() : undefined;
   return {
     level: config.LOG_LEVEL,
     timestamp: true,
@@ -33,10 +45,10 @@ export function loggerOptions(config: Config): FastifyServerOptions["logger"] {
       ],
       remove: true,
     },
-    ...(pretty
+    ...(prettyTarget
       ? {
           transport: {
-            target: "pino-pretty",
+            target: prettyTarget,
             options: {
               colorize: true,
               translateTime: "HH:MM:ss.l",
