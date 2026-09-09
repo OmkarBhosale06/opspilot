@@ -1,9 +1,9 @@
-import type { EventHandler, OpsEvent } from "./types.js";
+import type { EventHandler, OpsPilotEvent } from "../types/events.js";
 
-class EventBus {
+export class EventBus {
   private handlers = new Set<EventHandler>();
 
-  publish(event: OpsEvent): void {
+  publish(event: OpsPilotEvent): void {
     for (const handler of this.handlers) {
       try {
         handler(event);
@@ -19,6 +19,8 @@ class EventBus {
       this.handlers.delete(handler);
     };
   }
-}
 
-export const eventBus = new EventBus();
+  get subscriberCount(): number {
+    return this.handlers.size;
+  }
+}

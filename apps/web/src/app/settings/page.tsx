@@ -4,14 +4,14 @@ import { EmptyState } from "@/components/ui/states";
 
 export default function SettingsPage() {
   return (
-    <AppShell title="Settings" breadcrumb={<span>Platform / Settings</span>}>
+    <AppShell title="Settings">
       <PageHeader
         title="Settings"
-        description="Models, integrations, RBAC, and audit configuration."
+        description="Models, integrations, RBAC, and audit logs."
       />
       <EmptyState
         title="Coming in a later phase"
-        description="Control-plane configuration will be managed here."
+        description="Control-plane configuration stays server-side. Kubeconfig never reaches the browser."
       />
     </AppShell>
   );

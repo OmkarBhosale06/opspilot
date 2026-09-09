@@ -1,35 +1,36 @@
-import { config } from "../../config.js";
-import { eventBus } from "../../events/bus.js";
+import type { FastifyBaseLogger } from "fastify";
+import type { Config } from "../config/env.js";
+import type { EventBus } from "../events/bus.js";
 
-/**
- * Optional demo simulator: periodically re-emits investigation-oriented
- * events for INC-1042 so SSE clients see live agent activity.
- */
-export function startAgentSimulator(): void {
+export function startAgentSimulator(
+  bus: EventBus,
+  config: Config,
+  log: FastifyBaseLogger
+): () => void {
   const incidentId = "INC-1042";
   const steps = [
     {
       step: "monitor_error_rate",
       message: "Re-checking Prometheus 5xx rate for checkout-api",
-      status: "running",
+      status: "running" as const,
     },
     {
       step: "monitor_error_rate",
       message: "Error rate still elevated at ~18%",
-      status: "completed",
+      status: "completed" as const,
     },
     {
       step: "await_approval",
       message: "Waiting for on-call approval to rollback v43 → v42",
-      status: "running",
+      status: "running" as const,
     },
   ];
 
   let idx = 0;
-  setInterval(() => {
+  const timer = setInterval(() => {
     const step = steps[idx % steps.length];
     idx += 1;
-    eventBus.publish({
+    bus.publish({
       type: "agent.investigation.step",
       incidentId,
       clusterId: config.CLUSTER_ID,
@@ -42,5 +43,6 @@ export function startAgentSimulator(): void {
     });
   }, 20_000);
 
-  console.log("[agent-simulator] emitting demo investigation steps for INC-1042");
+  log.info("Emitting demo investigation steps for INC-1042");
+  return () => clearInterval(timer);
 }

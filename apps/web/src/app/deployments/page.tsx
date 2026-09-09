@@ -12,33 +12,30 @@ export default function DeploymentsPage() {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["deployments"],
     queryFn: () => listDeployments(),
-    refetchInterval: 20_000,
+    retry: false,
   });
 
   return (
-    <AppShell
-      title="Deployments"
-      breadcrumb={<span>Delivery / Timeline</span>}
-    >
+    <AppShell title="Deployment history">
       <PageHeader
-        title="Deployment timeline"
-        description="Current rollout posture — open a deployment for ReplicaSet snapshots."
+        title="Deployment history"
+        description="What changed, and which revision was last verified healthy?"
       />
-      {isLoading ? <LoadingBlock rows={5} /> : null}
+      {isLoading ? <LoadingBlock /> : null}
       {isError ? (
         <ErrorState
-          title="Deployments unavailable"
+          title="Live deployments unavailable"
           description={
             error instanceof ApiError
-              ? error.message
-              : "Unable to reach the control plane."
+              ? `${error.message} Open INC-1042 related checkout-api snapshots when Kubernetes is back.`
+              : "Kubernetes disconnected."
           }
         />
       ) : null}
       {data && data.length === 0 ? (
         <EmptyState
-          title="No deployments"
-          description="Deployment history appears when the cluster is connected."
+          title="No deployment history"
+          description="ReplicaSet revisions will appear here once a workload is applied."
         />
       ) : null}
       {data && data.length > 0 ? <DeploymentList deployments={data} /> : null}

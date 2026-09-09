@@ -3,11 +3,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/layout/page-header";
-import { MetricTile } from "@/components/overview/metric-tiles";
+import { MetricTiles } from "@/components/overview/metric-tiles";
 import { ActiveIncidents } from "@/components/overview/active-incidents";
 import { LiveEvents } from "@/components/overview/live-events";
 import { AgentActivityPanel } from "@/components/agents/agent-activity-panel";
-import { ErrorRateSparkline } from "@/components/charts/error-rate-sparkline";
+import {
+  ErrorRateSparkline,
+  demoErrorRateSeries,
+} from "@/components/charts/error-rate-sparkline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ErrorState, LoadingBlock } from "@/components/ui/states";
 import { getOverview } from "@/services/overview";
@@ -90,10 +93,14 @@ export default function OverviewPage() {
                 </CardHeader>
                 <CardContent>
                   <ErrorRateSparkline
-                    incidentErrorRate={
-                      incidents.data?.find((i) => i.status !== "resolved")
-                        ?.errorRate
-                    }
+                    data={demoErrorRateSeries(
+                      incidents.data?.find(
+                        (i) => i.status !== "resolved" && i.status !== "closed"
+                      )?.errorRate ?? 0.4
+                    )}
+                    critical={(incidents.data ?? []).some(
+                      (i) => i.status !== "resolved" && i.status !== "closed"
+                    )}
                   />
                 </CardContent>
               </Card>
@@ -108,7 +115,32 @@ export default function OverviewPage() {
                 }
               />
             </div>
-            <AgentActivityPanel />
+            <AgentActivityPanel
+              items={(incidents.data ?? []).flatMap((incident) =>
+                incident.status === "resolved" || incident.status === "closed"
+                  ? []
+                  : [
+                      {
+                        id: `${incident.id}-investigate`,
+                        agent: "investigator",
+                        action: "Investigating elevated error rate",
+                        status: "running" as const,
+                        timestamp: incident.updatedAt,
+                        incidentId: incident.id,
+                        detail: incident.title,
+                      },
+                      {
+                        id: `${incident.id}-policy`,
+                        agent: "policy",
+                        action: "Awaiting rollback approval",
+                        status: "idle" as const,
+                        timestamp: incident.updatedAt,
+                        incidentId: incident.id,
+                        detail: "SEV1 production mutation blocked",
+                      },
+                    ]
+              )}
+            />
           </div>
         </div>
       ) : null}

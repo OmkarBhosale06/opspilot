@@ -85,6 +85,18 @@ export type Incident = {
   remediation: RemediationPlan;
   policy: PolicyState;
   verification: VerificationState;
+  relatedDeployments: Array<{
+    name: string;
+    version: string;
+    status: string;
+    at: string;
+  }>;
+  similarIncidents: Array<{
+    id: string;
+    title: string;
+    resolution: string;
+    similarity: number;
+  }>;
 };
 
 const INCIDENT_ID = "INC-1042";
@@ -374,6 +386,34 @@ function seedInc1042(): Incident {
       ],
       completedAt: null,
     },
+    relatedDeployments: [
+      {
+        name: "checkout-api",
+        version: "v43",
+        status: "degraded",
+        at: t(-2),
+      },
+      {
+        name: "checkout-api",
+        version: "v42",
+        status: "verified healthy",
+        at: "2026-09-03T08:42:00.000Z",
+      },
+    ],
+    similarIncidents: [
+      {
+        id: "INC-0891",
+        title: "checkout-api 5xx after payment refactor",
+        resolution: "Rollback to previous revision",
+        similarity: 0.87,
+      },
+      {
+        id: "INC-0712",
+        title: "Nil pointer in token validation",
+        resolution: "Hotfix + canary gate",
+        similarity: 0.74,
+      },
+    ],
   };
 }
 

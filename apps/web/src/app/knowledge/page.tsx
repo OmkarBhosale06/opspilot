@@ -4,17 +4,14 @@ import { EmptyState } from "@/components/ui/states";
 
 export default function KnowledgePage() {
   return (
-    <AppShell
-      title="Knowledge"
-      breadcrumb={<span>Platform / Knowledge</span>}
-    >
+    <AppShell title="Knowledge">
       <PageHeader
         title="Knowledge"
         description="Runbooks, previous incidents, and architecture memory."
       />
       <EmptyState
         title="Coming in a later phase"
-        description="Incident memory and runbook retrieval will power this space."
+        description="RAG over incident memory will power similar-incident recall on the command center."
       />
     </AppShell>
   );
