@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback, useState } from "react";
+import { useMemo, useCallback, useState, useEffect } from "react";
 import {
   ReactFlow,
   Background,
@@ -24,24 +24,29 @@ type GraphNodeData = {
   meta?: string;
 };
 
+function strokeFor(tone: GraphNodeData["tone"]) {
+  if (tone === "critical") return "#f43f5e";
+  if (tone === "healthy") return "#22c55e";
+  if (tone === "warning") return "#f59e0b";
+  return "#3f3f46";
+}
+
 function InfraNode({ data }: { data: GraphNodeData }) {
   return (
     <div
       className={cn(
-        "min-w-[140px] rounded-md border bg-card px-2.5 py-2 shadow-none",
-        data.tone === "critical"
-          ? "border-status-critical/40"
-          : data.tone === "warning"
-            ? "border-status-warning/40"
-            : data.tone === "healthy"
-              ? "border-status-healthy/30"
-              : "border-border"
+        "min-w-[148px] rounded-md border bg-card px-2.5 py-2",
+        data.tone === "critical" && "border-status-critical/50 bg-status-critical/8",
+        data.tone === "warning" && "border-status-warning/50 bg-status-warning/8",
+        data.tone === "healthy" && "border-status-healthy/40 bg-status-healthy/6",
+        data.tone === "info" && "border-status-info/30",
+        (data.tone === "unknown" || !data.tone) && "border-border"
       )}
     >
       <Handle type="target" position={Position.Left} className="!bg-border" />
       <div className="flex items-center gap-1.5">
-        <StatusDot tone={data.tone} />
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+        <StatusDot tone={data.tone} pulse={data.tone === "critical"} />
+        <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
           {data.kind}
         </span>
       </div>
@@ -70,6 +75,11 @@ export function InfraGraph({
   pods: PodDto[];
 }) {
   const [selected, setSelected] = useState<GraphNodeData | null>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    setReady(true);
+  }, []);
 
   const { nodes, edges } = useMemo(() => {
     const ns =
@@ -106,13 +116,14 @@ export function InfraGraph({
         source: "cluster",
         target: `ns-${ns}`,
         markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14 },
-        style: { stroke: "#3f3f46" },
+        style: { stroke: "#52525b" },
       },
     ];
 
     deployments.forEach((d, i) => {
       const healthy = d.availableReplicas >= d.replicas && d.replicas > 0;
       const id = `dep-${d.name}`;
+      const tone = healthy ? "healthy" : "critical";
       n.push({
         id,
         type: "infra",
@@ -120,7 +131,7 @@ export function InfraGraph({
         data: {
           label: d.name,
           kind: "deployment",
-          tone: healthy ? "healthy" : "critical",
+          tone,
           meta: `${d.readyReplicas}/${d.replicas}`,
         },
       });
@@ -129,7 +140,7 @@ export function InfraGraph({
         source: `ns-${ns}`,
         target: id,
         markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14 },
-        style: { stroke: "#3f3f46" },
+        style: { stroke: strokeFor(tone) },
       });
 
       const relatedPods = pods.filter(
@@ -140,6 +151,7 @@ export function InfraGraph({
       );
       relatedPods.slice(0, 4).forEach((p, pi) => {
         const pid = `pod-${p.name}`;
+        const podTone = p.ready ? "healthy" : "critical";
         n.push({
           id: pid,
           type: "infra",
@@ -147,7 +159,7 @@ export function InfraGraph({
           data: {
             label: p.name,
             kind: "pod",
-            tone: p.ready ? "healthy" : "critical",
+            tone: podTone,
             meta: p.phase,
           },
         });
@@ -155,7 +167,7 @@ export function InfraGraph({
           id: `e-${d.name}-${p.name}`,
           source: id,
           target: pid,
-          style: { stroke: "#3f3f46" },
+          style: { stroke: strokeFor(podTone) },
         });
       });
     });
@@ -163,16 +175,19 @@ export function InfraGraph({
     return { nodes: n, edges: e };
   }, [clusterId, namespaces, deployments, pods]);
 
-  const onNodeClick = useCallback(
-    (_: unknown, node: Node<GraphNodeData>) => {
-      setSelected(node.data);
-    },
-    []
-  );
+  const onNodeClick = useCallback((_: unknown, node: Node<GraphNodeData>) => {
+    setSelected(node.data);
+  }, []);
+
+  if (!ready) {
+    return (
+      <div className="h-[min(70vh,560px)] rounded-md border border-border bg-card" />
+    );
+  }
 
   return (
-    <div className="flex h-[560px] flex-col gap-3 lg:flex-row">
-      <div className="min-h-[400px] flex-1 overflow-hidden rounded-md border border-border bg-card">
+    <div className="flex h-[min(70vh,560px)] flex-col gap-3 lg:flex-row">
+      <div className="min-h-[360px] flex-1 overflow-hidden rounded-md border border-border bg-card">
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -183,22 +198,19 @@ export function InfraGraph({
           minZoom={0.4}
           maxZoom={1.5}
         >
-          <Background gap={16} size={1} color="#27272a" />
+          <Background gap={16} size={1} color="#1b1b22" />
           <Controls showInteractive={false} />
           <MiniMap
             nodeColor={(n) => {
               const tone = (n.data as GraphNodeData)?.tone;
-              if (tone === "critical") return "#ef4444";
-              if (tone === "healthy") return "#22c55e";
-              if (tone === "warning") return "#f59e0b";
-              return "#71717a";
+              return strokeFor(tone);
             }}
-            maskColor="rgba(9,9,11,0.7)"
+            maskColor="rgba(7,7,9,0.75)"
           />
         </ReactFlow>
       </div>
       <aside className="w-full rounded-md border border-border bg-card p-3 lg:w-64">
-        <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+        <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
           Selection
         </div>
         {selected ? (
@@ -208,17 +220,14 @@ export function InfraGraph({
               <span className="text-sm font-medium">{selected.label}</span>
             </div>
             <div className="text-xs text-muted-foreground">
-              Kind: {selected.kind}
+              {selected.kind}
+              {selected.meta ? ` · ${selected.meta}` : ""}
             </div>
-            {selected.meta ? (
-              <div className="mono text-xs text-muted-foreground">
-                {selected.meta}
-              </div>
-            ) : null}
           </div>
         ) : (
-          <p className="mt-3 text-xs text-muted-foreground">
-            Click a node to inspect health context for investigation.
+          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+            Select a node. Unhealthy objects use red edges so blast radius is
+            visible without reading labels.
           </p>
         )}
       </aside>

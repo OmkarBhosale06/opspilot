@@ -29,7 +29,8 @@ export function StatusIndicator() {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <div
+        <button
+          type="button"
           className={cn(
             "inline-flex items-center gap-2 rounded-md border border-border bg-muted/50 px-2 py-1 text-[11px]",
             isError && "border-status-critical/30"
@@ -43,7 +44,7 @@ export function StatusIndicator() {
           {data?.cluster ? (
             <span className="mono text-foreground/80">{data.cluster}</span>
           ) : null}
-        </div>
+        </button>
       </TooltipTrigger>
       <TooltipContent>
         {data

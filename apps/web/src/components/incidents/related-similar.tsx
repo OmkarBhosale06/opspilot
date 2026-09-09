@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatTimestamp } from "@/lib/formatters";
@@ -8,13 +9,14 @@ export function RelatedAndSimilar({ incident }: { incident: Incident }) {
     <div className="grid gap-3 lg:grid-cols-2">
       <Card>
         <CardHeader>
-          <CardTitle>Related deployments</CardTitle>
+          <CardTitle>Related revisions</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {(incident.relatedDeployments ?? []).map((dep) => (
-            <div
+            <Link
               key={`${dep.name}-${dep.version}`}
-              className="flex items-center justify-between rounded-md border border-border-subtle px-2.5 py-2 text-xs"
+              href={`/deployments/${encodeURIComponent(dep.name)}`}
+              className="flex items-center justify-between rounded-md border border-border-subtle px-2.5 py-2 text-xs transition-colors hover:bg-accent/40"
             >
               <div>
                 <div className="font-medium">{dep.name}</div>
@@ -27,18 +29,18 @@ export function RelatedAndSimilar({ incident }: { incident: Incident }) {
               >
                 {dep.status}
               </Badge>
-            </div>
+            </Link>
           ))}
           {(incident.relatedDeployments ?? []).length === 0 ? (
             <p className="text-xs text-muted-foreground">
-              No related deployments linked yet.
+              No related revisions linked.
             </p>
           ) : null}
         </CardContent>
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>Similar historical incidents</CardTitle>
+          <CardTitle>Similar incidents</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {(incident.similarIncidents ?? []).map((sim) => (

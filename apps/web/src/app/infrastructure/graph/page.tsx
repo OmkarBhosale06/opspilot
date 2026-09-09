@@ -40,7 +40,7 @@ export default function GraphPage() {
         description="Cluster → namespace → deployment → pods, colored by health."
       />
       {loading ? <LoadingBlock /> : null}
-      {error ? (
+      {!loading && error ? (
         <ErrorState
           title="Graph data unavailable"
           description={
@@ -50,7 +50,8 @@ export default function GraphPage() {
           }
         />
       ) : null}
-      {!error &&
+      {!loading &&
+      !error &&
       (deployments.data?.length ?? 0) === 0 &&
       (pods.data?.length ?? 0) === 0 ? (
         <EmptyState
@@ -58,7 +59,8 @@ export default function GraphPage() {
           description="No deployments or pods in the default namespace."
         />
       ) : null}
-      {!error &&
+      {!loading &&
+      !error &&
       ((deployments.data?.length ?? 0) > 0 || (pods.data?.length ?? 0) > 0) ? (
         <InfraGraph
           clusterId={health.data?.cluster ?? "kind-opspilot"}

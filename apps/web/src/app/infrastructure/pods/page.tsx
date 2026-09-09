@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/layout/page-header";
 import { PodTable } from "@/components/infrastructure/pod-table";
-import { Card } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingBlock } from "@/components/ui/states";
 import { listPods } from "@/services/pods";
 import { useSse } from "@/hooks/use-sse";
@@ -50,11 +49,7 @@ export default function PodsPage() {
           description="The opspilot namespace has no pods, or Kubernetes is disconnected."
         />
       ) : null}
-      {data && data.length > 0 ? (
-        <Card className="overflow-hidden">
-          <PodTable pods={data} />
-        </Card>
-      ) : null}
+      {data && data.length > 0 ? <PodTable pods={data} /> : null}
     </AppShell>
   );
 }

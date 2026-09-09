@@ -17,13 +17,32 @@ export function MetricTile({
   className?: string;
 }) {
   return (
-    <Card className={cn(className)}>
+    <Card
+      className={cn(
+        "overflow-hidden",
+        tone === "critical" && "border-status-critical/35",
+        tone === "warning" && "border-status-warning/35",
+        tone === "healthy" && "border-status-healthy/25",
+        className
+      )}
+    >
+      <div
+        className={cn(
+          "h-0.5",
+          tone === "critical" && "bg-status-critical",
+          tone === "warning" && "bg-status-warning",
+          tone === "healthy" && "bg-status-healthy",
+          tone === "info" && "bg-status-info",
+          (tone === "unknown" || tone === "ai") && "bg-border"
+        )}
+        aria-hidden
+      />
       <CardContent className="space-y-2 p-3">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
             {label}
           </span>
-          <StatusDot tone={tone} />
+          <StatusDot tone={tone} pulse={tone === "critical"} />
         </div>
         <div className="text-2xl font-semibold tracking-tight tabular-nums capitalize">
           {value}
@@ -47,19 +66,23 @@ export function MetricTiles({ overview }: { overview: OverviewResponse }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <MetricTile
-        label="Cluster health"
+        label="Cluster"
         value={overview.k8sConnected ? overview.status : "offline"}
         hint={overview.cluster}
         tone={overview.k8sConnected ? clusterTone : "critical"}
       />
       <MetricTile
-        label="Active incidents"
+        label="Open incidents"
         value={overview.incidents.open}
-        hint={`${overview.incidents.total} total`}
+        hint={
+          overview.incidents.highestSeverity
+            ? `Highest ${overview.incidents.highestSeverity}`
+            : `${overview.incidents.total} total`
+        }
         tone={overview.incidents.open > 0 ? "critical" : "healthy"}
       />
       <MetricTile
-        label="Unhealthy pods"
+        label="Pods not ready"
         value={overview.pods.notReady}
         hint={`${overview.pods.ready}/${overview.pods.total} ready`}
         tone={
@@ -76,7 +99,9 @@ export function MetricTiles({ overview }: { overview: OverviewResponse }) {
         hint={
           overview.deployments.unavailable > 0
             ? `${overview.deployments.unavailable} unavailable`
-            : "All available"
+            : overview.k8sConnected
+              ? "All available"
+              : "No cluster data"
         }
         tone={
           overview.deployments.unavailable > 0

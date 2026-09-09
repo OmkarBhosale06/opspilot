@@ -72,9 +72,10 @@ export function ErrorRateSparkline({
 
 /** Demo series used when Prometheus isn't wired yet */
 export function demoErrorRateSeries(current = 18.4): Point[] {
-  const base = Math.max(0.2, current * 0.02);
+  const base = Math.max(0.2, current <= 1 ? current * 100 * 0.02 : current * 0.02);
+  const peak = current <= 1 ? current * 100 : current;
   return Array.from({ length: 24 }).map((_, i) => ({
     t: `${i}`,
-    value: i < 16 ? base + Math.random() * 0.4 : current * (0.7 + Math.random() * 0.35),
+    value: i < 16 ? Number((base + (i % 3) * 0.12).toFixed(2)) : Number((peak * (0.72 + (i % 5) * 0.05)).toFixed(2)),
   }));
 }

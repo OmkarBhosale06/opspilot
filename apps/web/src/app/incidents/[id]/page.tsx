@@ -2,17 +2,17 @@
 
 import { useMemo } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/layout/app-shell";
 import { IncidentHeader } from "@/components/incidents/incident-header";
+import { CausalChain } from "@/components/incidents/causal-chain";
 import { IncidentTimeline } from "@/components/incidents/timeline";
 import { InvestigationStream } from "@/components/incidents/investigation-stream";
 import { EvidencePanel } from "@/components/incidents/evidence-panel";
 import { RootCauseCard } from "@/components/incidents/root-cause";
 import { RemediationCard } from "@/components/incidents/remediation-card";
 import { RelatedAndSimilar } from "@/components/incidents/related-similar";
-import { PolicyExecutionState } from "@/components/incidents/policy-state";
-import { AgentActivityPanel } from "@/components/agents/agent-activity-panel";
 import {
   ErrorRateSparkline,
   demoErrorRateSeries,
@@ -22,7 +22,7 @@ import { ErrorState, LoadingBlock } from "@/components/ui/states";
 import { getIncident } from "@/services/incidents";
 import { useSse } from "@/hooks/use-sse";
 import { ApiError } from "@/lib/api";
-import type { AgentActivityItem, InvestigationStep } from "@/types";
+import type { InvestigationStep } from "@/types";
 
 export default function IncidentCommandCenterPage() {
   const params = useParams<{ id: string }>();
@@ -50,56 +50,32 @@ export default function IncidentCommandCenterPage() {
     },
   });
 
-  const { events: agentEvents } = useSse("/api/agent/stream", {
+  const { events: agentEvents, connected } = useSse("/api/agent/stream", {
     enabled: Boolean(id),
   });
 
-  const steps: InvestigationStep[] = data?.investigation ?? [];
+  const liveEvents = useMemo(
+    () => agentEvents.filter((e) => !e.incidentId || e.incidentId === id),
+    [agentEvents, id]
+  );
 
-  const agentItems: AgentActivityItem[] = useMemo(() => {
-    const fromSse = agentEvents
-      .filter((e) => !e.incidentId || e.incidentId === id)
-      .slice(0, 6)
-      .map((e, i) => ({
-        id: `a-${e.timestamp}-${i}`,
-        agent: "investigator",
-        action: e.step ?? e.message ?? e.type,
-        status:
-          e.status === "running"
-            ? ("running" as const)
-            : e.status === "failed"
-              ? ("failed" as const)
-              : ("completed" as const),
-        timestamp: e.timestamp,
-        incidentId: e.incidentId ?? id,
-        detail: e.message,
-      }));
-    if (fromSse.length) return fromSse;
-    return steps.slice(-4).map((s) => ({
-      id: s.id,
-      agent: s.tool,
-      action: s.step,
-      status:
-        s.status === "running"
-          ? ("running" as const)
-          : s.status === "failed"
-            ? ("failed" as const)
-            : s.status === "pending"
-              ? ("idle" as const)
-              : ("completed" as const),
-      timestamp: s.completedAt ?? s.startedAt,
-      incidentId: id,
-      detail: s.summary,
-    }));
-  }, [agentEvents, steps, id]);
+  const steps: InvestigationStep[] = data?.investigation ?? [];
+  const series = useMemo(
+    () => demoErrorRateSeries(data?.errorRate ?? 0.4),
+    [data?.errorRate]
+  );
 
   return (
     <AppShell
-      title={data ? data.id : "Incident"}
+      title={data ? `${data.id} · ${data.status}` : "Incident"}
       breadcrumb={
-        <span>
-          Incidents / <span className="mono text-foreground">{id}</span>
-        </span>
+        <nav className="flex items-center gap-1.5">
+          <Link href="/incidents" className="hover:text-foreground">
+            Incidents
+          </Link>
+          <span aria-hidden>/</span>
+          <span className="mono text-foreground">{id}</span>
+        </nav>
       }
     >
       {isLoading ? <LoadingBlock rows={8} /> : null}
@@ -117,44 +93,48 @@ export default function IncidentCommandCenterPage() {
       {data ? (
         <div className="space-y-4">
           <IncidentHeader incident={data} />
+          <CausalChain incident={data} />
 
-          <div className="grid gap-3 xl:grid-cols-[1.1fr_1.1fr_0.9fr]">
-            <IncidentTimeline events={data.timeline} />
-            <InvestigationStream steps={steps} />
+          <RemediationCard
+            remediation={data.remediation}
+            policy={data.policy}
+            verification={data.verification}
+          />
+
+          <RootCauseCard rootCause={data.rootCause} />
+
+          <div className="grid gap-3 xl:grid-cols-[1.15fr_0.85fr]">
+            <InvestigationStream
+              steps={steps}
+              liveEvents={liveEvents}
+              connected={connected}
+            />
             <div className="space-y-3">
               <Card>
                 <CardHeader>
                   <CardTitle>Error rate</CardTitle>
+                  <span className="mono text-[10px] text-status-critical">
+                    {data.service} · {data.errorRate.toFixed(1)}% 5xx
+                  </span>
                 </CardHeader>
                 <CardContent>
                   <ErrorRateSparkline
-                    data={demoErrorRateSeries(data.errorRate)}
+                    data={series}
                     critical={data.errorRate > 5}
+                    className="h-20"
                   />
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    Inflection aligns with {data.rootCause.change}. Series is
+                    illustrative until Prometheus is wired.
+                  </p>
                 </CardContent>
               </Card>
-              <AgentActivityPanel items={agentItems} dense />
+              <EvidencePanel evidence={data.evidence} />
             </div>
           </div>
 
-          <div className="grid gap-3 xl:grid-cols-2">
-            <EvidencePanel evidence={data.evidence} />
-            <RootCauseCard rootCause={data.rootCause} />
-          </div>
-
+          <IncidentTimeline events={data.timeline} />
           <RelatedAndSimilar incident={data} />
-
-          <div className="grid gap-3 xl:grid-cols-2">
-            <RemediationCard
-              remediation={data.remediation}
-              policy={data.policy}
-              verification={data.verification}
-            />
-            <PolicyExecutionState
-              policy={data.policy}
-              verification={data.verification}
-            />
-          </div>
         </div>
       ) : null}
     </AppShell>

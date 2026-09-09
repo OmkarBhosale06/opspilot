@@ -27,6 +27,7 @@ import {
   formatRelative,
 } from "@/lib/formatters";
 import { ApiError } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 export default function IncidentsPage() {
   const { data, isLoading, isError, error } = useQuery({
@@ -39,7 +40,7 @@ export default function IncidentsPage() {
     <AppShell title="Incidents">
       <PageHeader
         title="Incidents"
-        description="Active investigations and resolved incident memory."
+        description="Open investigations first. Resolved items remain as memory."
       />
 
       {isLoading ? <LoadingBlock /> : null}
@@ -54,7 +55,7 @@ export default function IncidentsPage() {
       {data && data.length === 0 ? (
         <EmptyState
           title="No incidents"
-          description="When alerts fire, OpsPilot opens an investigation workspace here."
+          description="Alerts will open a command center workspace here."
         />
       ) : null}
 
@@ -73,59 +74,70 @@ export default function IncidentsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.map((incident) => (
-                <TableRow key={incident.id}>
-                  <TableCell>
-                    <Link
-                      href={`/incidents/${incident.id}`}
-                      className="block hover:text-ai"
-                    >
-                      <div className="mono text-xs font-medium">
-                        {incident.id}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {incident.title}
-                      </div>
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        severityTone(incident.severity) === "critical"
-                          ? "critical"
-                          : "warning"
-                      }
-                    >
-                      {incident.severity}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        incidentStatusTone(incident.status) === "healthy"
-                          ? "healthy"
-                          : incidentStatusTone(incident.status) === "warning"
-                            ? "warning"
-                            : "critical"
-                      }
-                    >
-                      {incident.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="mono text-xs">
-                    {incident.service}
-                  </TableCell>
-                  <TableCell className="mono text-xs">
-                    {formatPercent(incident.errorRate / 100, 1)}
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    {formatDuration(incident.startedAt, incident.resolvedAt)}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {formatRelative(incident.updatedAt)}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {data.map((incident) => {
+                const open =
+                  incident.status !== "resolved" && incident.status !== "closed";
+                return (
+                  <TableRow
+                    key={incident.id}
+                    className={cn(
+                      open &&
+                        severityTone(incident.severity) === "critical" &&
+                        "bg-status-critical/6"
+                    )}
+                  >
+                    <TableCell>
+                      <Link
+                        href={`/incidents/${incident.id}`}
+                        className="block rounded-sm hover:text-ai focus-visible:outline-none"
+                      >
+                        <div className="mono text-xs font-medium">
+                          {incident.id}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {incident.title}
+                        </div>
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          severityTone(incident.severity) === "critical"
+                            ? "critical"
+                            : "warning"
+                        }
+                      >
+                        {incident.severity}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          incidentStatusTone(incident.status) === "healthy"
+                            ? "healthy"
+                            : incidentStatusTone(incident.status) === "warning"
+                              ? "warning"
+                              : "critical"
+                        }
+                      >
+                        {incident.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="mono text-xs">
+                      {incident.service}
+                    </TableCell>
+                    <TableCell className="mono text-xs text-status-critical">
+                      {formatPercent(incident.errorRate / 100, 1)}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {formatDuration(incident.startedAt, incident.resolvedAt)}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {formatRelative(incident.updatedAt)}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>

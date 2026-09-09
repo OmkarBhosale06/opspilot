@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/layout/page-header";
 import { EventStream } from "@/components/infrastructure/event-stream";
-import { Card } from "@/components/ui/card";
 import { EmptyState, ErrorState, LoadingBlock } from "@/components/ui/states";
 import { listEvents } from "@/services/events";
 import { useSse } from "@/hooks/use-sse";
@@ -47,11 +46,7 @@ export default function EventsPage() {
       {data && data.length === 0 ? (
         <EmptyState title="No events" description="Quiet cluster, or disconnected." />
       ) : null}
-      {data && data.length > 0 ? (
-        <Card>
-          <EventStream events={data} />
-        </Card>
-      ) : null}
+      {data && data.length > 0 ? <EventStream events={data} /> : null}
     </AppShell>
   );
 }

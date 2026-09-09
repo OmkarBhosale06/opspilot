@@ -1,6 +1,6 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusIndicator } from "@/components/layout/status-indicator";
 import { useUiStore } from "@/stores/ui-store";
@@ -15,33 +15,61 @@ export function Topbar({
   actions?: React.ReactNode;
 }) {
   const setCommandPaletteOpen = useUiStore((s) => s.setCommandPaletteOpen);
+  const setMobileNavOpen = useUiStore((s) => s.setMobileNavOpen);
+  const mobileNavOpen = useUiStore((s) => s.mobileNavOpen);
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-card/80 px-4 backdrop-blur">
+    <header className="flex h-11 shrink-0 items-center gap-3 border-b border-border bg-card/80 px-3 backdrop-blur md:px-4">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="md:hidden"
+        aria-label="Open navigation"
+        aria-expanded={mobileNavOpen}
+        onClick={() => setMobileNavOpen(true)}
+      >
+        <Menu className="h-4 w-4" />
+      </Button>
+
       <div className="min-w-0 flex-1">
         {breadcrumb ? (
-          <div className="text-xs text-muted-foreground">{breadcrumb}</div>
+          <div className="truncate text-[11px] text-muted-foreground">
+            {breadcrumb}
+          </div>
         ) : null}
         {title ? (
-          <h1 className="truncate text-sm font-medium text-foreground">
+          <div className="truncate text-sm font-medium text-foreground">
             {title}
-          </h1>
+          </div>
         ) : null}
       </div>
 
       <Button
+        type="button"
         variant="outline"
         size="sm"
-        className="hidden min-w-[220px] justify-between text-muted-foreground md:inline-flex"
+        className="hidden min-w-[200px] justify-between text-muted-foreground lg:inline-flex"
         onClick={() => setCommandPaletteOpen(true)}
       >
         <span className="inline-flex items-center gap-2">
           <Search className="h-3.5 w-3.5" />
-          Search or jump…
+          Jump to…
         </span>
         <kbd className="mono rounded border border-border bg-muted px-1.5 py-0.5 text-[10px]">
           ⌘K
         </kbd>
+      </Button>
+
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="lg:hidden"
+        aria-label="Open command palette"
+        onClick={() => setCommandPaletteOpen(true)}
+      >
+        <Search className="h-4 w-4" />
       </Button>
 
       {actions}

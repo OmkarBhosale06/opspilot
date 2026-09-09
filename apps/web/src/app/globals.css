@@ -1,37 +1,38 @@
 @import "tailwindcss";
 
 :root {
-  --background: #09090b;
+  --background: #070709;
   --foreground: #e4e4e7;
-  --card: #0f0f12;
-  --card-elevated: #141419;
-  --muted: #18181b;
-  --muted-foreground: #a1a1aa;
-  --border: #27272a;
-  --border-subtle: #1f1f23;
-  --accent: #1c1c22;
+  --card: #0c0c10;
+  --card-elevated: #121218;
+  --muted: #16161c;
+  --muted-foreground: #9b9ba8;
+  --border: #24242c;
+  --border-subtle: #1b1b22;
+  --accent: #1a1a22;
   --accent-foreground: #fafafa;
-  --ring: #3f3f46;
+  --ring: #8b7cf6;
   --primary: #fafafa;
-  --primary-foreground: #09090b;
-  --secondary: #18181b;
+  --primary-foreground: #070709;
+  --secondary: #16161c;
   --secondary-foreground: #e4e4e7;
   --destructive: #ef4444;
   --destructive-foreground: #fafafa;
 
-  --status-critical: #ef4444;
+  --status-critical: #f43f5e;
   --status-warning: #f59e0b;
   --status-healthy: #22c55e;
   --status-info: #38bdf8;
   --status-unknown: #71717a;
 
   --ai: #8b7cf6;
-  --ai-muted: #5b4fd6;
+  --ai-muted: #6d62d4;
+  --evidence: #38bdf8;
 
   --radius: 0.375rem;
-  --sidebar-width: 240px;
-  --sidebar-collapsed: 64px;
-  --topbar-height: 48px;
+  --sidebar-width: 232px;
+  --sidebar-collapsed: 56px;
+  --topbar-height: 44px;
 }
 
 @theme inline {
@@ -58,6 +59,7 @@
   --color-status-unknown: var(--status-unknown);
   --color-ai: var(--ai);
   --color-ai-muted: var(--ai-muted);
+  --color-evidence: var(--evidence);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --radius-sm: calc(var(--radius) - 2px);
@@ -78,17 +80,71 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
 }
 
 ::selection {
-  background: color-mix(in oklab, var(--ai) 35%, transparent);
+  background: color-mix(in oklab, var(--ai) 32%, transparent);
 }
 
 *:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: -40px;
+  z-index: 80;
+  border-radius: var(--radius);
+  background: var(--card);
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--foreground);
+  border: 1px solid var(--border);
+}
+
+.skip-link:focus {
+  top: 12px;
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in oklab, var(--ai) 18%, transparent) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .shimmer {
+    animation: none;
+    background: color-mix(in oklab, var(--ai) 8%, transparent);
+  }
 }
 
 .mono {

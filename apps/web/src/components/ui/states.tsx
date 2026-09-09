@@ -1,6 +1,9 @@
+import type { ReactNode } from "react";
+import { AlertTriangle, Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StatusTone } from "@/components/ui/status-dot";
 import { StatusDot } from "@/components/ui/status-dot";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { IncidentStatus, Severity } from "@/types";
 
 export function severityTone(severity: Severity): StatusTone {
@@ -35,28 +38,36 @@ export function EmptyState({
   title,
   description,
   className,
+  action,
 }: {
   title: string;
   description?: string;
   className?: string;
+  action?: ReactNode;
 }) {
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border px-4 py-10 text-center",
+        "flex flex-col items-start justify-center gap-2 rounded-md border border-dashed border-border bg-card/40 px-5 py-8",
         className
       )}
     >
-      <p className="text-sm text-foreground">{title}</p>
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Inbox className="h-3.5 w-3.5" aria-hidden />
+        <p className="text-sm font-medium text-foreground">{title}</p>
+      </div>
       {description ? (
-        <p className="max-w-sm text-xs text-muted-foreground">{description}</p>
+        <p className="max-w-lg text-xs leading-relaxed text-muted-foreground">
+          {description}
+        </p>
       ) : null}
+      {action}
     </div>
   );
 }
 
 export function ErrorState({
-  title = "Something went wrong",
+  title = "Control plane error",
   description,
   className,
 }: {
@@ -66,17 +77,21 @@ export function ErrorState({
 }) {
   return (
     <div
+      role="alert"
       className={cn(
-        "rounded-md border border-status-critical/30 bg-status-critical/5 px-3 py-3",
+        "rounded-md border border-status-critical/35 bg-status-critical/8 px-3 py-3",
         className
       )}
     >
       <div className="flex items-center gap-2 text-sm text-status-critical">
-        <StatusDot tone="critical" />
+        <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+        <StatusDot tone="critical" label="Error" />
         {title}
       </div>
       {description ? (
-        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+        <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+          {description}
+        </p>
       ) : null}
     </div>
   );
@@ -84,14 +99,14 @@ export function ErrorState({
 
 export function LoadingBlock({ rows = 4 }: { rows?: number }) {
   return (
-    <div className="space-y-2 p-3">
-      {Array.from({ length: rows }).map((_, i) => (
-        <div
-          key={i}
-          className="h-8 animate-pulse rounded-md bg-muted"
-          style={{ opacity: 1 - i * 0.12 }}
-        />
-      ))}
+    <div className="space-y-3" aria-busy="true" aria-live="polite">
+      <span className="sr-only">Loading</span>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: Math.min(4, rows) }).map((_, i) => (
+          <Skeleton key={i} className="h-[72px]" />
+        ))}
+      </div>
+      {rows > 4 ? <Skeleton className="h-48 w-full" /> : null}
     </div>
   );
 }

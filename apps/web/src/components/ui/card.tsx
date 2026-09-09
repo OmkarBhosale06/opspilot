@@ -22,7 +22,7 @@ export function CardHeader({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-3 border-b border-border-subtle px-3 py-2",
+        "flex items-center justify-between gap-3 border-b border-border-subtle px-3 py-2.5",
         className
       )}
       {...props}
@@ -37,7 +37,7 @@ export function CardTitle({
   return (
     <h3
       className={cn(
-        "text-[11px] font-medium uppercase tracking-wider text-muted-foreground",
+        "text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground",
         className
       )}
       {...props}

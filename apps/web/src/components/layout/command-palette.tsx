@@ -74,7 +74,7 @@ export function CommandPalette() {
           </div>
           <Command.List className="max-h-80 overflow-y-auto p-2">
             <Command.Empty className="px-2 py-6 text-center text-xs text-muted-foreground">
-              No matches. Incident search placeholder — connect memory later.
+              No matching pages.
             </Command.Empty>
             {groups.map(([group, items]) => (
               <Command.Group
@@ -90,7 +90,7 @@ export function CommandPalette() {
                       setOpen(false);
                       router.push(item.href);
                     }}
-                    className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-xs data-[selected=true]:bg-accent"
+                    className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-xs aria-selected:bg-accent data-[selected=true]:bg-accent"
                   >
                     <item.icon className="h-3.5 w-3.5 text-muted-foreground" />
                     <span>{item.label}</span>

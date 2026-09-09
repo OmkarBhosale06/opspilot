@@ -1,18 +1,11 @@
-import { AppShell } from "@/components/layout/app-shell";
-import { PageHeader } from "@/components/layout/page-header";
-import { EmptyState } from "@/components/ui/states";
+import { PhasePlaceholder } from "@/components/layout/phase-placeholder";
 
 export default function KnowledgePage() {
   return (
-    <AppShell title="Knowledge">
-      <PageHeader
-        title="Knowledge"
-        description="Runbooks, previous incidents, and architecture memory."
-      />
-      <EmptyState
-        title="Coming in a later phase"
-        description="RAG over incident memory will power similar-incident recall on the command center."
-      />
-    </AppShell>
+    <PhasePlaceholder
+      title="Knowledge"
+      description="Runbooks and similar-incident recall after persistence exists."
+      detail="Similar incidents on INC-1042 are seeded memory. RAG is a later phase."
+    />
   );
 }

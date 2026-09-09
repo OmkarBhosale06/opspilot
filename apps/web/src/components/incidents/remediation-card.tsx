@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown, ShieldAlert } from "lucide-react";
+import type { ReactNode } from "react";
+import { ShieldAlert } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { StatusDot } from "@/components/ui/status-dot";
 import type { PolicyState, RemediationPlan, VerificationState } from "@/types";
 
 export function RemediationCard({
@@ -17,107 +17,133 @@ export function RemediationCard({
   policy: PolicyState;
   verification: VerificationState;
 }) {
-  const [whyOpen, setWhyOpen] = useState(true);
+  const riskVariant =
+    remediation.risk === "high"
+      ? "critical"
+      : remediation.risk === "medium"
+        ? "warning"
+        : "healthy";
 
   return (
-    <Card className="h-full border-status-warning/30">
+    <Card className="border-status-warning/45 bg-[linear-gradient(180deg,color-mix(in_oklab,var(--status-warning)_10%,transparent),transparent_32%)]">
       <CardHeader>
-        <CardTitle className="text-status-warning">
-          Recommended remediation
-        </CardTitle>
-        <Badge variant="warning">{remediation.risk} risk</Badge>
+        <div className="flex items-center gap-2">
+          <ShieldAlert className="h-3.5 w-3.5 text-status-warning" aria-hidden />
+          <CardTitle className="text-status-warning">Action required</CardTitle>
+        </div>
+        <Badge variant="warning">Approval gate</Badge>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <h3 className="text-sm font-medium capitalize">
+          <p className="text-[15px] font-semibold tracking-tight capitalize">
             {remediation.action} {remediation.target}
-          </h3>
-          <div className="mt-2 grid grid-cols-2 gap-3 text-xs">
-            <div className="rounded-md border border-border-subtle bg-muted/30 px-2.5 py-2">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <div className="rounded-md border border-status-critical/30 bg-status-critical/8 px-3 py-2">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
                 Current
               </div>
-              <div className="mono text-status-critical">
+              <div className="mono text-sm text-status-critical">
                 {remediation.fromVersion}
               </div>
             </div>
-            <div className="rounded-md border border-status-healthy/30 bg-status-healthy/5 px-2.5 py-2">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            <div className="rounded-md border border-status-healthy/35 bg-status-healthy/8 px-3 py-2">
+              <div className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
                 Target
               </div>
-              <div className="mono text-status-healthy">
+              <div className="mono text-sm text-status-healthy">
                 {remediation.toVersion}
-                <span className="ml-1.5 text-[10px] font-sans uppercase tracking-wide">
-                  Verified healthy
-                </span>
               </div>
             </div>
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setWhyOpen((v) => !v)}
-          className="flex w-full items-center justify-between rounded-md border border-border-subtle px-2.5 py-2 text-left text-xs hover:bg-accent/40"
-          aria-expanded={whyOpen}
-        >
-          <span className="font-medium">Why this action?</span>
-          <ChevronDown
-            className={cn(
-              "h-3.5 w-3.5 text-muted-foreground transition-transform",
-              whyOpen && "rotate-180"
-            )}
+        <dl className="grid gap-3 md:grid-cols-2">
+          <Fact label="Why" value={remediation.rationale} />
+          <Fact
+            label="Risk"
+            value={`${remediation.risk} · ${remediation.estimatedImpact}`}
+            badge={
+              <Badge variant={riskVariant}>{remediation.risk} risk</Badge>
+            }
           />
-        </button>
+          <Fact
+            label="Policy"
+            value={`${policy.policyId}: ${policy.reason}`}
+            badge={
+              <Badge variant="warning">
+                {policy.approvals.length}/{policy.requiredApprovals} approvals
+              </Badge>
+            }
+          />
+          <Fact label="Expected outcome" value={remediation.estimatedImpact} />
+        </dl>
 
-        {whyOpen ? (
-          <div className="space-y-2 rounded-md border border-border-subtle bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-            <p>{remediation.rationale}</p>
-            <p>
-              <span className="text-foreground">Expected outcome: </span>
-              {remediation.estimatedImpact}
-            </p>
-            <div>
-              <span className="text-foreground">Verification plan:</span>
-              <ul className="mt-1 space-y-1">
-                {verification.checks.map((check) => (
-                  <li key={check.name} className="flex gap-2">
-                    <span className="text-muted-foreground">•</span>
-                    {check.name} — {check.detail}
-                  </li>
-                ))}
-              </ul>
-            </div>
+        <div className="rounded-md border border-border-subtle bg-muted/25 px-3 py-2.5">
+          <div className="mb-2 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+            Verification
           </div>
-        ) : null}
-
-        <div className="flex items-start gap-2 rounded-md border border-status-warning/25 bg-status-warning/5 px-2.5 py-2">
-          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-warning" />
-          <div className="text-xs">
-            <div className="font-medium text-status-warning">
-              Policy: approval required
-            </div>
-            <p className="mt-0.5 text-muted-foreground">{policy.reason}</p>
-            <p className="mono mt-1 text-[10px] text-muted-foreground">
-              {policy.policyId} · {policy.approvals.length}/
-              {policy.requiredApprovals} approvals
-            </p>
-          </div>
+          <ul className="space-y-1.5">
+            {verification.checks.map((check) => (
+              <li
+                key={check.name}
+                className="flex items-start justify-between gap-3 text-xs"
+              >
+                <span className="flex items-center gap-2">
+                  <StatusDot
+                    tone={
+                      check.status === "passed"
+                        ? "healthy"
+                        : check.status === "failed"
+                          ? "critical"
+                          : "unknown"
+                    }
+                    label={check.status}
+                  />
+                  {check.name}
+                </span>
+                <span className="max-w-[55%] text-right text-[11px] text-muted-foreground">
+                  {check.detail}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="outline" size="sm">
             Review changes
           </Button>
-          <Button variant="warning" size="sm">
+          <Button type="button" variant="warning" size="sm">
             Approve rollback
           </Button>
+          <p className="text-[10px] text-muted-foreground">
+            UI-only this phase. Executor will not mutate until policy authorizes.
+          </p>
         </div>
-        <p className="text-[10px] text-muted-foreground">
-          Approval is UI-only in this phase. Mutations require policy → executor
-          → verifier.
-        </p>
       </CardContent>
     </Card>
+  );
+}
+
+function Fact({
+  label,
+  value,
+  badge,
+}: {
+  label: string;
+  value: string;
+  badge?: ReactNode;
+}) {
+  return (
+    <div className="rounded-md border border-border-subtle bg-background/40 px-3 py-2.5">
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <dt className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+          {label}
+        </dt>
+        {badge}
+      </div>
+      <dd className="text-xs leading-relaxed text-foreground/90">{value}</dd>
+    </div>
   );
 }

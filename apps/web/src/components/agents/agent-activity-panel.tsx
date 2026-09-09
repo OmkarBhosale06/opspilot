@@ -33,7 +33,7 @@ export function AgentActivityPanel({
   dense?: boolean;
 }) {
   return (
-    <Card className={cn("flex h-full flex-col", className)}>
+    <Card className={cn("flex h-full flex-col border-ai/20", className)}>
       <CardHeader>
         <CardTitle className="inline-flex items-center gap-2">
           <Bot className="h-3.5 w-3.5 text-ai" />

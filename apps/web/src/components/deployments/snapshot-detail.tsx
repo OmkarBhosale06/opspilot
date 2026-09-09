@@ -3,16 +3,28 @@ import { Badge } from "@/components/ui/badge";
 import { formatTimestamp } from "@/lib/formatters";
 import type { SnapshotDto } from "@/types";
 
-export function SnapshotDetail({ snapshot }: { snapshot: SnapshotDto }) {
-  const healthy =
+export function SnapshotDetail({
+  snapshot,
+  serviceHealth = "unknown",
+}: {
+  snapshot: SnapshotDto;
+  serviceHealth?: "healthy" | "degraded" | "unknown";
+}) {
+  const replicaOk =
     snapshot.readyReplicas >= snapshot.replicas && snapshot.replicas > 0;
+  const healthy =
+    serviceHealth === "degraded"
+      ? false
+      : serviceHealth === "healthy"
+        ? true
+        : replicaOk;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Snapshot detail</CardTitle>
         <Badge variant={healthy ? "healthy" : "critical"}>
-          {healthy ? "verified healthy" : "unhealthy"}
+          {healthy ? "replicas ready" : "incident window"}
         </Badge>
       </CardHeader>
       <CardContent>
@@ -35,9 +47,9 @@ export function SnapshotDetail({ snapshot }: { snapshot: SnapshotDto }) {
             mono
           />
         </dl>
-        <p className="mt-4 text-[11px] text-muted-foreground">
-          Secret values are never displayed. Full ConfigMap/Secret references,
-          probes, and Helm metadata land with the snapshot persistence phase.
+        <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground">
+          Secrets are never shown. Probe, ConfigMap, and Helm metadata wait on
+          snapshot persistence.
         </p>
       </CardContent>
     </Card>

@@ -1,18 +1,11 @@
-import { AppShell } from "@/components/layout/app-shell";
-import { PageHeader } from "@/components/layout/page-header";
-import { EmptyState } from "@/components/ui/states";
+import { PhasePlaceholder } from "@/components/layout/phase-placeholder";
 
 export default function SettingsPage() {
   return (
-    <AppShell title="Settings">
-      <PageHeader
-        title="Settings"
-        description="Models, integrations, RBAC, and audit logs."
-      />
-      <EmptyState
-        title="Coming in a later phase"
-        description="Control-plane configuration stays server-side. Kubeconfig never reaches the browser."
-      />
-    </AppShell>
+    <PhasePlaceholder
+      title="Settings"
+      description="Models, integrations, and audit stay server-side."
+      detail="Kubeconfig never reaches the browser. Cluster and CORS are configured on the API."
+    />
   );
 }

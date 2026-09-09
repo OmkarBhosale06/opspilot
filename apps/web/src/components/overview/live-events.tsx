@@ -41,7 +41,12 @@ export function LiveEvents({
           events.slice(0, 12).map((event, idx) => (
             <div
               key={`${event.object}-${event.reason}-${event.lastTimestamp}-${idx}`}
-              className="rounded-md border border-border-subtle px-2.5 py-2"
+              className={cn(
+                "rounded-md border px-2.5 py-2",
+                event.type === "Warning"
+                  ? "border-status-warning/30 bg-status-warning/6"
+                  : "border-border-subtle"
+              )}
             >
               <div className="flex items-center gap-2">
                 <StatusDot

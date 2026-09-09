@@ -125,9 +125,9 @@ function DeploymentDetail({
       ) : null}
 
       {usingDemo ? (
-        <p className="mb-4 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-          Showing incident-linked snapshot memory for checkout-api. Live
-          ReplicaSets will replace this when Kind is connected.
+        <p className="mb-4 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+          ReplicaSet history for checkout-api, including the INC-1042 window.
+          Live objects replace this seed when Kind is connected.
         </p>
       ) : null}
 
@@ -141,7 +141,18 @@ function DeploymentDetail({
       {snapshots.length > 0 ? (
         <div className="grid gap-4 lg:grid-cols-2">
           <SnapshotTimeline name={decoded} snapshots={snapshots} />
-          {selected ? <SnapshotDetail snapshot={selected} /> : null}
+          {selected ? (
+            <SnapshotDetail
+              snapshot={selected}
+              serviceHealth={
+                selected.revision === "43" && decoded.includes("checkout")
+                  ? "degraded"
+                  : selected.revision === "42" && decoded.includes("checkout")
+                    ? "healthy"
+                    : "unknown"
+              }
+            />
+          ) : null}
         </div>
       ) : null}
     </AppShell>

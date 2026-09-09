@@ -14,14 +14,17 @@ export function EventStream({
   maxHeight?: string;
 }) {
   return (
-    <ScrollArea style={{ maxHeight }} className="w-full">
+    <ScrollArea style={{ maxHeight }} className="w-full rounded-md border border-border bg-card">
       <div className="divide-y divide-border-subtle">
         {events.map((event, idx) => {
           const warning = event.type === "Warning";
           return (
             <div
               key={`${event.object}-${event.reason}-${event.lastTimestamp}-${idx}`}
-              className="flex gap-3 px-3 py-2.5"
+              className={cn(
+                "flex gap-3 px-3 py-2.5",
+                warning && "bg-status-warning/6"
+              )}
             >
               <div
                 className={cn(

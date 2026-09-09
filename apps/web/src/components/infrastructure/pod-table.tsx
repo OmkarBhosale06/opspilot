@@ -47,7 +47,16 @@ export function PodTable({ pods }: { pods: PodDto[] }) {
                 ? "warning"
                 : "critical";
             return (
-              <TableRow key={`${pod.namespace}/${pod.name}`}>
+              <TableRow
+                key={`${pod.namespace}/${pod.name}`}
+                className={
+                  tone === "critical"
+                    ? "bg-status-critical/6"
+                    : tone === "warning"
+                      ? "bg-status-warning/5"
+                      : undefined
+                }
+              >
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <StatusDot tone={tone} />
@@ -73,9 +82,17 @@ export function PodTable({ pods }: { pods: PodDto[] }) {
                   </Badge>
                 </TableCell>
                 <TableCell className="mono text-xs">
-                  {pod.ready ? "true" : "false"}
+                  {pod.ready ? "Ready" : "Not ready"}
                 </TableCell>
-                <TableCell className="mono text-xs">{pod.restarts}</TableCell>
+                <TableCell
+                  className={
+                    pod.restarts > 0
+                      ? "mono text-xs text-status-warning"
+                      : "mono text-xs"
+                  }
+                >
+                  {pod.restarts}
+                </TableCell>
                 <TableCell className="mono text-xs text-muted-foreground">
                   {pod.node ?? "—"}
                 </TableCell>
@@ -129,11 +146,14 @@ export function DeploymentTable({
             const healthy =
               dep.replicas > 0 && dep.readyReplicas >= dep.replicas;
             return (
-              <TableRow key={`${dep.namespace}/${dep.name}`}>
+              <TableRow
+                key={`${dep.namespace}/${dep.name}`}
+                className={healthy ? undefined : "bg-status-warning/6"}
+              >
                 <TableCell>
                   <Link
                     href={`${linkBase}/${encodeURIComponent(dep.name)}`}
-                    className="mono text-xs text-foreground hover:underline"
+                    className="mono text-xs text-foreground hover:text-ai hover:underline"
                   >
                     {dep.name}
                   </Link>

@@ -1,24 +1,18 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/layout/page-header";
 import { MetricTiles } from "@/components/overview/metric-tiles";
 import { ActiveIncidents } from "@/components/overview/active-incidents";
 import { LiveEvents } from "@/components/overview/live-events";
 import { AgentActivityPanel } from "@/components/agents/agent-activity-panel";
-import {
-  ErrorRateSparkline,
-  demoErrorRateSeries,
-} from "@/components/charts/error-rate-sparkline";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ErrorState, LoadingBlock } from "@/components/ui/states";
 import { getOverview } from "@/services/overview";
 import { listIncidents } from "@/services/incidents";
 import { listEvents } from "@/services/events";
 import { ApiError } from "@/lib/api";
 import { useSse } from "@/hooks/use-sse";
-import { useQueryClient } from "@tanstack/react-query";
 
 export default function OverviewPage() {
   const qc = useQueryClient();
@@ -58,8 +52,8 @@ export default function OverviewPage() {
   return (
     <AppShell title="Overview">
       <PageHeader
-        title="Overview"
-        description="Is production healthy? What changed? What needs attention?"
+        title="Production"
+        description="Health, open incidents, and cluster events — nothing else."
       />
 
       {overview.isLoading ? <LoadingBlock rows={3} /> : null}
@@ -77,7 +71,10 @@ export default function OverviewPage() {
       {overview.data ? (
         <div className="space-y-4">
           {overview.data.message ? (
-            <div className="rounded-md border border-status-warning/30 bg-status-warning/5 px-3 py-2 text-xs text-status-warning">
+            <div
+              role="status"
+              className="rounded-md border border-status-warning/30 bg-status-warning/8 px-3 py-2 text-xs leading-relaxed text-status-warning"
+            >
               {overview.data.message}
             </div>
           ) : null}
@@ -87,23 +84,6 @@ export default function OverviewPage() {
           <div className="grid gap-4 xl:grid-cols-3">
             <div className="space-y-4 xl:col-span-2">
               <ActiveIncidents incidents={incidents.data ?? []} />
-              <Card>
-                <CardHeader>
-                  <CardTitle>Error rate signal</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ErrorRateSparkline
-                    data={demoErrorRateSeries(
-                      incidents.data?.find(
-                        (i) => i.status !== "resolved" && i.status !== "closed"
-                      )?.errorRate ?? 0.4
-                    )}
-                    critical={(incidents.data ?? []).some(
-                      (i) => i.status !== "resolved" && i.status !== "closed"
-                    )}
-                  />
-                </CardContent>
-              </Card>
               <LiveEvents
                 events={events.data ?? []}
                 error={
@@ -123,7 +103,7 @@ export default function OverviewPage() {
                       {
                         id: `${incident.id}-investigate`,
                         agent: "investigator",
-                        action: "Investigating elevated error rate",
+                        action: "Correlating 5xx with last rollout",
                         status: "running" as const,
                         timestamp: incident.updatedAt,
                         incidentId: incident.id,
@@ -132,11 +112,11 @@ export default function OverviewPage() {
                       {
                         id: `${incident.id}-policy`,
                         agent: "policy",
-                        action: "Awaiting rollback approval",
+                        action: "SEV1 rollback blocked pending approval",
                         status: "idle" as const,
                         timestamp: incident.updatedAt,
                         incidentId: incident.id,
-                        detail: "SEV1 production mutation blocked",
+                        detail: "prod-sev1-rollback",
                       },
                     ]
               )}

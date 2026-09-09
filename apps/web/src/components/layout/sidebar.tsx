@@ -62,9 +62,7 @@ const NAV: NavGroup[] = [
   },
   {
     label: "Delivery",
-    items: [
-      { href: "/deployments", label: "Deployments", icon: GitBranch },
-    ],
+    items: [{ href: "/deployments", label: "Revisions", icon: GitBranch }],
   },
   {
     label: "Platform",
@@ -105,6 +103,7 @@ function NavLink({
   collapsed: boolean;
 }) {
   const pathname = usePathname();
+  const setMobileNavOpen = useUiStore((s) => s.setMobileNavOpen);
   const active =
     pathname === item.href ||
     (item.href !== "/overview" && pathname.startsWith(item.href));
@@ -112,6 +111,8 @@ function NavLink({
   const content = (
     <Link
       href={item.href}
+      aria-current={active ? "page" : undefined}
+      onClick={() => setMobileNavOpen(false)}
       className={cn(
         "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-xs transition-colors",
         active
@@ -120,13 +121,13 @@ function NavLink({
         collapsed && "justify-center px-0"
       )}
     >
-      <item.icon className="h-3.5 w-3.5 shrink-0" />
+      <item.icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
       {!collapsed && (
         <>
           <span className="truncate">{item.label}</span>
           {item.stub ? (
             <span className="ml-auto text-[9px] uppercase tracking-wide text-muted-foreground/70">
-              Soon
+              Later
             </span>
           ) : null}
         </>
@@ -147,26 +148,34 @@ function NavLink({
 export function Sidebar() {
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
+  const mobileNavOpen = useUiStore((s) => s.mobileNavOpen);
 
   return (
     <aside
       className={cn(
-        "flex h-full flex-col border-r border-border bg-card transition-[width] duration-200",
-        collapsed ? "w-16" : "w-60"
+        "fixed inset-y-0 left-0 z-40 flex h-full flex-col border-r border-border bg-card transition-[width,transform] duration-200 md:relative md:translate-x-0",
+        collapsed ? "md:w-14" : "md:w-[232px]",
+        mobileNavOpen ? "w-[232px] translate-x-0" : "w-[232px] -translate-x-full md:translate-x-0"
       )}
+      aria-label="Primary"
     >
       <div
         className={cn(
-          "flex h-12 items-center border-b border-border-subtle px-3",
-          collapsed ? "justify-center" : "justify-between"
+          "flex h-11 items-center border-b border-border-subtle px-3",
+          collapsed ? "md:justify-center" : "justify-between"
         )}
       >
-        {!collapsed ? (
-          <div className="flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-ai/20 text-ai">
-              <Shield className="h-3.5 w-3.5" />
-            </div>
-            <div>
+        <div
+          className={cn(
+            "flex items-center gap-2",
+            collapsed && "md:justify-center"
+          )}
+        >
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-ai/15 text-ai">
+            <Shield className="h-3.5 w-3.5" aria-hidden />
+          </div>
+          {(!collapsed || mobileNavOpen) && (
+            <div className={cn(collapsed && "md:hidden")}>
               <div className="text-sm font-semibold tracking-tight">
                 OpsPilot
               </div>
@@ -174,38 +183,36 @@ export function Sidebar() {
                 SRE control plane
               </div>
             </div>
-          </div>
-        ) : (
-          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-ai/20 text-ai">
-            <Shield className="h-3.5 w-3.5" />
-          </div>
-        )}
-        {!collapsed ? (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleSidebar}
-            aria-label="Collapse sidebar"
-          >
-            <ChevronLeft className="h-3.5 w-3.5" />
-          </Button>
-        ) : null}
+          )}
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn(collapsed && "hidden md:hidden", "hidden md:inline-flex")}
+          onClick={toggleSidebar}
+          aria-label="Collapse sidebar"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+        </Button>
       </div>
 
       <nav className="flex-1 space-y-4 overflow-y-auto p-2">
         {NAV.map((group) => (
           <div key={group.label}>
-            {!collapsed ? (
-              <div className="mb-1 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
-                {group.label}
-              </div>
-            ) : null}
+            <div
+              className={cn(
+                "mb-1 px-2 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground/70",
+                collapsed && "md:sr-only"
+              )}
+            >
+              {group.label}
+            </div>
             <div className="space-y-0.5">
               {group.items.map((item) => (
                 <NavLink
                   key={item.href}
                   item={item}
-                  collapsed={collapsed}
+                  collapsed={collapsed && !mobileNavOpen}
                 />
               ))}
             </div>
@@ -214,7 +221,7 @@ export function Sidebar() {
       </nav>
 
       {collapsed ? (
-        <div className="border-t border-border-subtle p-2">
+        <div className="hidden border-t border-border-subtle p-2 md:block">
           <Button
             variant="ghost"
             size="icon"
