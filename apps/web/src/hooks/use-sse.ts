@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { sseUrl } from "@/lib/api";
+import { sseUrl, clientLog } from "@/lib/api";
 import type { OpsEvent } from "@/types";
 
 type Options = {
@@ -27,17 +27,33 @@ export function useSse(path: string | null, options: Options = {}) {
     const connect = () => {
       if (closed) return;
       setError(null);
-      es = new EventSource(sseUrl(path));
+      const url = sseUrl(path);
+      clientLog("sse", `connecting ${url}`);
+      es = new EventSource(url);
 
-      es.onopen = () => setConnected(true);
+      es.onopen = () => {
+        setConnected(true);
+        clientLog("sse", `open ${url}`);
+      };
 
       const handlePayload = (raw: MessageEvent) => {
         try {
           const data = JSON.parse(raw.data) as OpsEvent;
+          const eventName = raw.type || "message";
+          if (data.type === "heartbeat" || eventName === "heartbeat") {
+            if (process.env.NEXT_PUBLIC_API_DEBUG === "1") {
+              clientLog("sse", `heartbeat ${url}`);
+            }
+          } else {
+            clientLog("sse", `${eventName} ${data.type}`, {
+              incidentId: data.incidentId,
+              message: data.message,
+            });
+          }
           setEvents((prev) => [data, ...prev].slice(0, 200));
           onEventRef.current?.(data);
         } catch {
-          // ignore malformed frames
+          clientLog("sse", `ignored malformed frame on ${url}`);
         }
       };
 
@@ -47,6 +63,7 @@ export function useSse(path: string | null, options: Options = {}) {
       es.onerror = () => {
         setConnected(false);
         setError("SSE disconnected");
+        clientLog("sse", `error ${url} — retrying in 3s`);
         es?.close();
         retryTimer = setTimeout(connect, 3000);
       };
@@ -58,6 +75,7 @@ export function useSse(path: string | null, options: Options = {}) {
       closed = true;
       if (retryTimer) clearTimeout(retryTimer);
       es?.close();
+      if (path) clientLog("sse", `closed ${sseUrl(path)}`);
       setConnected(false);
     };
   }, [path, enabled]);

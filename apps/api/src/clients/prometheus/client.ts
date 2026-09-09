@@ -1,4 +1,6 @@
 import type { Config } from "../../config/env.js";
+import type { AppLogger } from "../../logging.js";
+import { loggedFetch } from "../http.js";
 
 export type PrometheusQueryResult = {
   status: string;
@@ -6,10 +8,13 @@ export type PrometheusQueryResult = {
 };
 
 export class PrometheusClient {
-  constructor(private readonly baseUrl: string) {}
+  constructor(
+    private readonly baseUrl: string,
+    private readonly log?: AppLogger
+  ) {}
 
-  static fromConfig(config: Config): PrometheusClient {
-    return new PrometheusClient(config.PROMETHEUS_URL.replace(/\/$/, ""));
+  static fromConfig(config: Config, log?: AppLogger): PrometheusClient {
+    return new PrometheusClient(config.PROMETHEUS_URL.replace(/\/$/, ""), log);
   }
 
   async instantQuery(query: string): Promise<PrometheusQueryResult> {
@@ -33,7 +38,12 @@ export class PrometheusClient {
 
   async health(): Promise<boolean> {
     try {
-      const res = await fetch(`${this.baseUrl}/-/ready`);
+      const res = await loggedFetch(
+        this.log,
+        `${this.baseUrl}/-/ready`,
+        undefined,
+        "prometheus"
+      );
       return res.ok;
     } catch {
       return false;
@@ -41,7 +51,7 @@ export class PrometheusClient {
   }
 
   private async get(url: string): Promise<PrometheusQueryResult> {
-    const res = await fetch(url);
+    const res = await loggedFetch(this.log, url, undefined, "prometheus");
     if (!res.ok) {
       throw new Error(`Prometheus request failed (${res.status})`);
     }

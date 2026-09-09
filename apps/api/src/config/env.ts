@@ -13,13 +13,23 @@ const envSchema = z.object({
   LOKI_URL: z.string().default("http://localhost:3100"),
   LOG_LEVEL: z
     .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
-    .default("info"),
+    .optional(),
 });
 
-export type Config = z.infer<typeof envSchema>;
+export type Config = z.infer<typeof envSchema> & {
+  LOG_LEVEL: "fatal" | "error" | "warn" | "info" | "debug" | "trace" | "silent";
+};
+
+function defaultLogLevel(
+  nodeEnv: Config["NODE_ENV"]
+): Config["LOG_LEVEL"] {
+  if (nodeEnv === "production") return "info";
+  if (nodeEnv === "test") return "silent";
+  return "debug";
+}
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  return envSchema.parse({
+  const parsed = envSchema.parse({
     NODE_ENV: env.NODE_ENV,
     HOST: env.HOST,
     PORT: env.PORT,
@@ -32,6 +42,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     LOKI_URL: env.LOKI_URL,
     LOG_LEVEL: env.LOG_LEVEL,
   });
+  return {
+    ...parsed,
+    LOG_LEVEL: parsed.LOG_LEVEL ?? defaultLogLevel(parsed.NODE_ENV),
+  };
 }
 
 export const config = loadConfig();

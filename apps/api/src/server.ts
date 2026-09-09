@@ -10,6 +10,7 @@ import { KubernetesMonitorService } from "./services/kubernetes-monitor.js";
 import { registerRoutes } from "./routes/index.js";
 import type { AppContext } from "./controllers/index.js";
 import { startAgentSimulator } from "./services/agent-simulator.js";
+import { createReqId, loggerOptions } from "./logging.js";
 
 export type BuildOptions = {
   config?: Config;
@@ -23,25 +24,40 @@ export async function buildServer(
 ): Promise<{ app: FastifyInstance; ctx: AppContext }> {
   const config = options.config ?? loadConfig();
   const app = Fastify({
-    logger: {
-      level: config.LOG_LEVEL,
-    },
+    disableRequestLogging: true,
+    genReqId: () => createReqId(),
+    logger: loggerOptions(config),
   });
 
   await app.register(cors, {
     origin: config.CORS_ORIGIN.split(",").map((s) => s.trim()),
   });
 
-  const k8sClient = options.k8sClient ?? new KubernetesClient(config.CLUSTER_ID);
+  const k8sClient =
+    options.k8sClient ?? new KubernetesClient(config.CLUSTER_ID, app.log);
   if (!options.k8sClient) {
     k8sClient.loadFromKubeConfig();
+    app.log.info(
+      {
+        connected: k8sClient.connected,
+        error: k8sClient.lastError,
+        cluster: k8sClient.describeCluster(config.NAMESPACE),
+      },
+      k8sClient.connected
+        ? "Loaded kubeconfig"
+        : "Kubeconfig not loaded"
+    );
     await k8sClient.probe();
+    app.log.info(
+      { connected: k8sClient.connected, error: k8sClient.lastError },
+      k8sClient.connected ? "Kubernetes reachable" : "Kubernetes unreachable"
+    );
   }
 
-  const bus = new EventBus();
+  const bus = new EventBus(app.log);
   const k8s = new KubernetesMonitorService(k8sClient, bus, config, app.log);
-  const prometheus = PrometheusClient.fromConfig(config);
-  const loki = LokiClient.fromConfig(config);
+  const prometheus = PrometheusClient.fromConfig(config, app.log);
+  const loki = LokiClient.fromConfig(config, app.log);
   const postgres = PostgresClient.fromConfig(config);
   const redis = RedisClient.fromConfig(config);
   await postgres.connect();

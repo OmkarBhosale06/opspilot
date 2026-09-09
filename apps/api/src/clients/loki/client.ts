@@ -1,4 +1,6 @@
 import type { Config } from "../../config/env.js";
+import type { AppLogger } from "../../logging.js";
+import { loggedFetch } from "../http.js";
 
 export type LokiLogLine = {
   timestamp: string;
@@ -7,10 +9,13 @@ export type LokiLogLine = {
 };
 
 export class LokiClient {
-  constructor(private readonly baseUrl: string) {}
+  constructor(
+    private readonly baseUrl: string,
+    private readonly log?: AppLogger
+  ) {}
 
-  static fromConfig(config: Config): LokiClient {
-    return new LokiClient(config.LOKI_URL.replace(/\/$/, ""));
+  static fromConfig(config: Config, log?: AppLogger): LokiClient {
+    return new LokiClient(config.LOKI_URL.replace(/\/$/, ""), log);
   }
 
   async queryRange(
@@ -25,7 +30,12 @@ export class LokiClient {
       end: endNs,
       limit: String(limit),
     });
-    const res = await fetch(`${this.baseUrl}/loki/api/v1/query_range?${params}`);
+    const res = await loggedFetch(
+      this.log,
+      `${this.baseUrl}/loki/api/v1/query_range?${params}`,
+      undefined,
+      "loki"
+    );
     if (!res.ok) {
       throw new Error(`Loki request failed (${res.status})`);
     }
@@ -51,7 +61,12 @@ export class LokiClient {
   }
 
   async labelNames(): Promise<string[]> {
-    const res = await fetch(`${this.baseUrl}/loki/api/v1/labels`);
+    const res = await loggedFetch(
+      this.log,
+      `${this.baseUrl}/loki/api/v1/labels`,
+      undefined,
+      "loki"
+    );
     if (!res.ok) {
       throw new Error(`Loki label discovery failed (${res.status})`);
     }
@@ -61,7 +76,12 @@ export class LokiClient {
 
   async health(): Promise<boolean> {
     try {
-      const res = await fetch(`${this.baseUrl}/ready`);
+      const res = await loggedFetch(
+        this.log,
+        `${this.baseUrl}/ready`,
+        undefined,
+        "loki"
+      );
       return res.ok;
     } catch {
       return false;

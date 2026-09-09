@@ -1,5 +1,7 @@
 import * as k8s from "@kubernetes/client-node";
 import { KubernetesUnavailableError, isNotFound } from "../../types/errors.js";
+import type { AppLogger } from "../../logging.js";
+import { timed } from "../../logging.js";
 import type {
   ClusterDto,
   DeploymentDto,
@@ -31,7 +33,10 @@ export class KubernetesClient {
   private loadError: string | null = null;
   private liveConnected = false;
 
-  constructor(private readonly clusterId: string) {}
+  constructor(
+    private readonly clusterId: string,
+    private readonly log?: AppLogger
+  ) {}
 
   loadFromKubeConfig(): void {
     const kc = new k8s.KubeConfig();
@@ -86,7 +91,12 @@ export class KubernetesClient {
       return false;
     }
     try {
-      await this.apis.core.listNamespace({ limit: 1 });
+      await timed(
+        this.log,
+        { client: "k8s", op: "probe" },
+        "k8s probe",
+        () => this.apis!.core.listNamespace({ limit: 1 })
+      );
       this.liveConnected = true;
       this.loadError = null;
       return true;
@@ -105,20 +115,35 @@ export class KubernetesClient {
 
   async listNamespaces(): Promise<NamespaceDto[]> {
     const { core } = this.requireApis();
-    const res = await core.listNamespace();
+    const res = await timed(
+      this.log,
+      { client: "k8s", op: "listNamespaces" },
+      "k8s listNamespaces",
+      () => core.listNamespace()
+    );
     return (res.items ?? []).map(toNamespaceDto);
   }
 
   async listPods(namespace: string): Promise<PodDto[]> {
     const { core } = this.requireApis();
-    const res = await core.listNamespacedPod({ namespace });
+    const res = await timed(
+      this.log,
+      { client: "k8s", op: "listPods", namespace },
+      "k8s listPods",
+      () => core.listNamespacedPod({ namespace })
+    );
     return (res.items ?? []).map(toPodDto);
   }
 
   async getPod(name: string, namespace: string): Promise<PodDto | null> {
     const { core } = this.requireApis();
     try {
-      const pod = await core.readNamespacedPod({ name, namespace });
+      const pod = await timed(
+        this.log,
+        { client: "k8s", op: "getPod", name, namespace },
+        "k8s getPod",
+        () => core.readNamespacedPod({ name, namespace })
+      );
       return toPodDto(pod);
     } catch (err) {
       if (isNotFound(err)) return null;
@@ -133,12 +158,18 @@ export class KubernetesClient {
   ): Promise<PodLogsDto | null> {
     const { core } = this.requireApis();
     try {
-      const text = await core.readNamespacedPodLog({
-        name,
-        namespace,
-        container: options.container,
-        tailLines: options.tailLines ?? 200,
-      });
+      const text = await timed(
+        this.log,
+        { client: "k8s", op: "getPodLogs", name, namespace },
+        "k8s getPodLogs",
+        () =>
+          core.readNamespacedPodLog({
+            name,
+            namespace,
+            container: options.container,
+            tailLines: options.tailLines ?? 200,
+          })
+      );
       const body = typeof text === "string" ? text : String(text ?? "");
       return {
         pod: name,
@@ -154,7 +185,12 @@ export class KubernetesClient {
 
   async listDeployments(namespace: string): Promise<DeploymentDto[]> {
     const { apps } = this.requireApis();
-    const res = await apps.listNamespacedDeployment({ namespace });
+    const res = await timed(
+      this.log,
+      { client: "k8s", op: "listDeployments", namespace },
+      "k8s listDeployments",
+      () => apps.listNamespacedDeployment({ namespace })
+    );
     return (res.items ?? []).map(toDeploymentDto);
   }
 
@@ -164,7 +200,12 @@ export class KubernetesClient {
   ): Promise<DeploymentDto | null> {
     const { apps } = this.requireApis();
     try {
-      const dep = await apps.readNamespacedDeployment({ name, namespace });
+      const dep = await timed(
+        this.log,
+        { client: "k8s", op: "getDeployment", name, namespace },
+        "k8s getDeployment",
+        () => apps.readNamespacedDeployment({ name, namespace })
+      );
       return toDeploymentDto(dep);
     } catch (err) {
       if (isNotFound(err)) return null;
@@ -177,7 +218,12 @@ export class KubernetesClient {
     namespace: string
   ): Promise<SnapshotDto[]> {
     const { apps } = this.requireApis();
-    const res = await apps.listNamespacedReplicaSet({ namespace });
+    const res = await timed(
+      this.log,
+      { client: "k8s", op: "listReplicaSets", name, namespace },
+      "k8s listReplicaSets",
+      () => apps.listNamespacedReplicaSet({ namespace })
+    );
     return (res.items ?? [])
       .filter((rs) =>
         (rs.metadata?.ownerReferences ?? []).some(
@@ -190,13 +236,23 @@ export class KubernetesClient {
 
   async listServices(namespace: string): Promise<ServiceDto[]> {
     const { core } = this.requireApis();
-    const res = await core.listNamespacedService({ namespace });
+    const res = await timed(
+      this.log,
+      { client: "k8s", op: "listServices", namespace },
+      "k8s listServices",
+      () => core.listNamespacedService({ namespace })
+    );
     return (res.items ?? []).map(toServiceDto);
   }
 
   async listEvents(namespace: string): Promise<K8sEventDto[]> {
     const { core } = this.requireApis();
-    const res = await core.listNamespacedEvent({ namespace });
+    const res = await timed(
+      this.log,
+      { client: "k8s", op: "listEvents", namespace },
+      "k8s listEvents",
+      () => core.listNamespacedEvent({ namespace })
+    );
     return (res.items ?? [])
       .map(toEventDto)
       .sort((a, b) => {

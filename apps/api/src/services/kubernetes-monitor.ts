@@ -121,6 +121,10 @@ export class KubernetesMonitorService {
     this.watchPath(`/api/v1/namespaces/${ns}/pods`, (phase, obj) => {
       const pod = toPodDto(obj as k8s.V1Pod);
       const verb = watchPhaseToVerb(phase);
+      this.log.debug(
+        { path: "/pods", phase, name: pod.name, namespace: pod.namespace },
+        `k8s watch pod ${verb}`
+      );
       this.bus.publish({
         type: `k8s.pod.${verb}`,
         clusterId: this.config.CLUSTER_ID,
@@ -201,6 +205,7 @@ export class KubernetesMonitorService {
           }
         );
         this.watches.push(req as RequestWatch);
+        this.log.info({ path }, "Kubernetes watch started");
       } catch (err) {
         this.log.warn({ err, path }, "Failed to start Kubernetes watch");
       }

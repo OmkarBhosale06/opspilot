@@ -24,27 +24,69 @@ export function openSseStream(
     initial?: OpsPilotEvent;
   } = {}
 ): void {
+  const reqId = request.id;
+  const url = request.url;
+  const started = Date.now();
+  let eventsSent = 0;
+  let heartbeats = 0;
+
   reply.hijack();
   reply.raw.writeHead(200, {
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache, no-transform",
     Connection: "keep-alive",
     "Access-Control-Allow-Origin": config.CORS_ORIGIN,
+    "X-Request-Id": String(reqId),
   });
   reply.raw.write("\n");
 
-  const send = (event: OpsPilotEvent) => {
+  const send = (sseEvent: string, payload: OpsPilotEvent) => {
+    writeSse(reply.raw, sseEvent, payload);
+    eventsSent += 1;
+    if (sseEvent === "heartbeat" || payload.type === "heartbeat") {
+      heartbeats += 1;
+      request.log.trace(
+        { reqId, url, type: payload.type, eventsSent, heartbeats },
+        `SSE heartbeat ${url}`
+      );
+      return;
+    }
+    request.log.debug(
+      {
+        reqId,
+        url,
+        sseEvent,
+        type: payload.type,
+        incidentId: payload.incidentId,
+        message: payload.message,
+        eventsSent,
+      },
+      `SSE ${sseEvent} ${payload.type}`
+    );
+  };
+
+  const onBusEvent = (event: OpsPilotEvent) => {
     if (options.filter && !options.filter(event)) return;
-    writeSse(reply.raw, "message", event);
+    send("message", event);
   };
 
   if (options.initial) {
-    writeSse(reply.raw, "message", options.initial);
+    send("message", options.initial);
   }
 
-  const unsubscribe = bus.subscribe(send);
+  const unsubscribe = bus.subscribe(onBusEvent);
+  request.log.info(
+    {
+      reqId,
+      url,
+      subscribers: bus.subscriberCount,
+      filter: Boolean(options.filter),
+    },
+    `SSE open ${url} subscribers=${bus.subscriberCount}`
+  );
+
   const heartbeat = setInterval(() => {
-    writeSse(reply.raw, "heartbeat", {
+    send("heartbeat", {
       type: "heartbeat",
       clusterId: config.CLUSTER_ID,
       timestamp: new Date().toISOString(),
@@ -54,6 +96,17 @@ export function openSseStream(
   const cleanup = () => {
     clearInterval(heartbeat);
     unsubscribe();
+    request.log.info(
+      {
+        reqId,
+        url,
+        ms: Date.now() - started,
+        eventsSent,
+        heartbeats,
+        subscribers: bus.subscriberCount,
+      },
+      `SSE close ${url} ${Date.now() - started}ms events=${eventsSent}`
+    );
   };
 
   request.raw.on("close", cleanup);

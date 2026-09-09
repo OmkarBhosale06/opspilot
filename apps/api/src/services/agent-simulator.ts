@@ -43,6 +43,9 @@ export function startAgentSimulator(
     });
   }, 20_000);
 
-  log.info("Emitting demo investigation steps for INC-1042");
+  log.info(
+    { incidentId, intervalMs: 20_000 },
+    "Emitting demo investigation steps for INC-1042"
+  );
   return () => clearInterval(timer);
 }
