@@ -1,0 +1,18 @@
+{
+  "name": "opspilot",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev:api & npm run dev:web",
+    "dev:api": "npm run dev --workspace=@opspilot/api",
+    "dev:web": "npm run dev --workspace=@opspilot/web",
+    "build": "npm run build --workspace=@opspilot/api && npm run build --workspace=@opspilot/web",
+    "build:api": "npm run build --workspace=@opspilot/api",
+    "build:web": "npm run build --workspace=@opspilot/web"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

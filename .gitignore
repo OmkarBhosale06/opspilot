@@ -30,6 +30,13 @@ tmp/
 # Node
 node_modules/
 .next/
+dist/
+out/
+*.tsbuildinfo
+
+# Env locals
+.env.local
+.env*.local
 
 # Terraform
 .terraform/
