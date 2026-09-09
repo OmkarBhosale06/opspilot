@@ -1,9 +1,11 @@
 "use client";
 
-import { Menu, Search } from "lucide-react";
+import { Menu, Search, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusIndicator } from "@/components/layout/status-indicator";
 import { useUiStore } from "@/stores/ui-store";
+import { useAuthStore } from "@/stores/auth-store";
+import { useRouter } from "next/navigation";
 
 export function Topbar({
   title,
@@ -17,6 +19,9 @@ export function Topbar({
   const setCommandPaletteOpen = useUiStore((s) => s.setCommandPaletteOpen);
   const setMobileNavOpen = useUiStore((s) => s.setMobileNavOpen);
   const mobileNavOpen = useUiStore((s) => s.mobileNavOpen);
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+  const router = useRouter();
 
   return (
     <header className="flex h-11 shrink-0 items-center gap-3 border-b border-border bg-card/80 px-3 backdrop-blur md:px-4">
@@ -73,6 +78,23 @@ export function Topbar({
       </Button>
 
       {actions}
+      {user ? (
+        <span className="hidden max-w-[140px] truncate text-[11px] text-muted-foreground sm:inline">
+          {user.email}
+        </span>
+      ) : null}
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label="Sign out"
+        onClick={() => {
+          logout();
+          router.push("/");
+        }}
+      >
+        <LogOut className="h-3.5 w-3.5" />
+      </Button>
       <StatusIndicator />
     </header>
   );
