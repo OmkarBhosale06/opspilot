@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { config } from "../config.js";
-import { eventBus } from "../events/bus.js";
-import type { OpsEvent } from "../events/types.js";
+import type { Config } from "../config/env.js";
+import type { EventBus } from "./bus.js";
+import type { OpsPilotEvent } from "../types/events.js";
 
 const HEARTBEAT_MS = 15_000;
 
@@ -17,9 +17,11 @@ function writeSse(
 export function openSseStream(
   request: FastifyRequest,
   reply: FastifyReply,
+  bus: EventBus,
+  config: Config,
   options: {
-    filter?: (event: OpsEvent) => boolean;
-    initial?: OpsEvent;
+    filter?: (event: OpsPilotEvent) => boolean;
+    initial?: OpsPilotEvent;
   } = {}
 ): void {
   reply.hijack();
@@ -27,11 +29,11 @@ export function openSseStream(
     "Content-Type": "text/event-stream",
     "Cache-Control": "no-cache, no-transform",
     Connection: "keep-alive",
-    "Access-Control-Allow-Origin": "http://localhost:3000",
+    "Access-Control-Allow-Origin": config.CORS_ORIGIN,
   });
   reply.raw.write("\n");
 
-  const send = (event: OpsEvent) => {
+  const send = (event: OpsPilotEvent) => {
     if (options.filter && !options.filter(event)) return;
     writeSse(reply.raw, "message", event);
   };
@@ -40,13 +42,13 @@ export function openSseStream(
     writeSse(reply.raw, "message", options.initial);
   }
 
-  const unsubscribe = eventBus.subscribe(send);
+  const unsubscribe = bus.subscribe(send);
   const heartbeat = setInterval(() => {
     writeSse(reply.raw, "heartbeat", {
       type: "heartbeat",
       clusterId: config.CLUSTER_ID,
       timestamp: new Date().toISOString(),
-    } satisfies OpsEvent);
+    } satisfies OpsPilotEvent);
   }, HEARTBEAT_MS);
 
   const cleanup = () => {
