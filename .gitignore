@@ -23,8 +23,8 @@ env/
 # Logs
 *.log
 
-# Local data
-data/
+# Local data (repo root only — keep infrastructure/data tracked)
+/data/
 tmp/
 
 # Node

@@ -20,9 +20,10 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ErrorState, LoadingBlock } from "@/components/ui/states";
 import { getIncident } from "@/services/incidents";
+import { getIncidentTelemetry } from "@/services/observability";
 import { useSse } from "@/hooks/use-sse";
 import { ApiError } from "@/lib/api";
-import type { InvestigationStep } from "@/types";
+import type { EvidenceItem, InvestigationStep } from "@/types";
 
 export default function IncidentCommandCenterPage() {
   const params = useParams<{ id: string }>();
@@ -34,6 +35,13 @@ export default function IncidentCommandCenterPage() {
     queryFn: () => getIncident(id),
     enabled: Boolean(id),
     refetchInterval: 12_000,
+  });
+
+  const telemetry = useQuery({
+    queryKey: ["incident", id, "telemetry"],
+    queryFn: () => getIncidentTelemetry(id),
+    enabled: Boolean(id),
+    refetchInterval: 10_000,
   });
 
   useSse("/api/incidents/stream", {
@@ -60,10 +68,25 @@ export default function IncidentCommandCenterPage() {
   );
 
   const steps: InvestigationStep[] = data?.investigation ?? [];
+  const liveSeries = telemetry.data?.errorRate.series ?? [];
   const series = useMemo(
-    () => demoErrorRateSeries(data?.errorRate ?? 0.4),
-    [data?.errorRate]
+    () =>
+      liveSeries.length > 0
+        ? liveSeries
+        : demoErrorRateSeries(
+            telemetry.data?.errorRate.current ?? data?.errorRate ?? 0.4
+          ),
+    [liveSeries, telemetry.data?.errorRate.current, data?.errorRate]
   );
+
+  const displayedErrorRate =
+    telemetry.data?.errorRate.current ?? data?.errorRate ?? 0;
+
+  const evidence: EvidenceItem[] = useMemo(() => {
+    const live = telemetry.data?.liveEvidence ?? [];
+    const seeded = data?.evidence ?? [];
+    return [...live, ...seeded];
+  }, [telemetry.data?.liveEvidence, data?.evidence]);
 
   return (
     <AppShell
@@ -114,22 +137,24 @@ export default function IncidentCommandCenterPage() {
                 <CardHeader>
                   <CardTitle>Error rate</CardTitle>
                   <span className="mono text-[10px] text-status-critical">
-                    {data.service} · {data.errorRate.toFixed(1)}% 5xx
+                    {data.service} · {displayedErrorRate.toFixed(1)}% 5xx
+                    {telemetry.data?.errorRate.live ? " · live" : " · seed"}
                   </span>
                 </CardHeader>
                 <CardContent>
                   <ErrorRateSparkline
                     data={series}
-                    critical={data.errorRate > 5}
+                    critical={displayedErrorRate > 5}
                     className="h-20"
                   />
                   <p className="mt-2 text-[11px] text-muted-foreground">
-                    Inflection aligns with {data.rootCause.change}. Series is
-                    illustrative until Prometheus is wired.
+                    {telemetry.data?.errorRate.live
+                      ? "Series from Prometheus for this service."
+                      : `Inflection aligns with ${data.rootCause.change}. Run make obs-up for live Prometheus.`}
                   </p>
                 </CardContent>
               </Card>
-              <EvidencePanel evidence={data.evidence} />
+              <EvidencePanel evidence={evidence} />
             </div>
           </div>
 

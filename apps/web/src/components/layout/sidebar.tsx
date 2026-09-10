@@ -71,7 +71,6 @@ const NAV: NavGroup[] = [
         href: "/observability",
         label: "Observability",
         icon: Activity,
-        stub: true,
       },
       {
         href: "/automation",

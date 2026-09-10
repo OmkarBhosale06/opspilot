@@ -10,6 +10,7 @@ import { openSseStream } from "../events/sse.js";
 import type { PrometheusClient } from "../clients/prometheus/client.js";
 import type { LokiClient } from "../clients/loki/client.js";
 import type { PostgresClient, RedisClient } from "../clients/data-stores.js";
+import type { ObservabilityService } from "../services/observability-service.js";
 
 export type AppContext = {
   config: Config;
@@ -18,6 +19,7 @@ export type AppContext = {
   bus: EventBus;
   prometheus: PrometheusClient;
   loki: LokiClient;
+  observability: ObservabilityService;
   postgres: PostgresClient;
   redis: RedisClient;
 };
@@ -216,14 +218,150 @@ export function registerControllers(app: FastifyInstance, ctx: AppContext) {
           message: `Incident ${request.params.id} not found`,
         });
       }
+      const telemetry = await ctx.observability.incidentTelemetry(incident.id);
+      const liveItems = telemetry?.liveEvidence ?? [];
+      const items = [...liveItems, ...incident.evidence];
       return {
         incidentId: incident.id,
-        items: incident.evidence,
-        count: incident.evidence.length,
+        items,
+        count: items.length,
         rootCause: incident.rootCause,
+        live: Boolean(telemetry?.live),
       };
     }
   );
+
+  app.get<{ Params: { id: string } }>(
+    "/api/incidents/:id/telemetry",
+    async (request, reply) => {
+      const telemetry = await ctx.observability.incidentTelemetry(
+        request.params.id
+      );
+      if (!telemetry) {
+        return reply.status(404).send({
+          error: "not_found",
+          message: `Incident ${request.params.id} not found`,
+        });
+      }
+      return telemetry;
+    }
+  );
+
+  app.get("/api/observability/status", async () => {
+    return ctx.observability.status();
+  });
+
+  app.get<{ Querystring: { service?: string } }>(
+    "/api/observability/overview",
+    async (request) => {
+      const service = request.query.service?.trim() || "checkout-api";
+      return ctx.observability.overview(service);
+    }
+  );
+
+  app.get<{ Querystring: { query: string } }>(
+    "/api/observability/metrics/query",
+    async (request, reply) => {
+      const query = request.query.query?.trim();
+      if (!query) {
+        return reply.status(400).send({
+          error: "bad_request",
+          message: "query is required",
+        });
+      }
+      try {
+        const result = await ctx.prometheus.instantQuery(query);
+        return { live: true, query, result };
+      } catch (err) {
+        return reply.status(503).send({
+          error: "prometheus_unavailable",
+          message: err instanceof Error ? err.message : "Prometheus unavailable",
+          hint: "Run `make obs-up` to start Prometheus on :9090.",
+        });
+      }
+    }
+  );
+
+  app.get<{
+    Querystring: { query: string; start?: string; end?: string; step?: string };
+  }>("/api/observability/metrics/range", async (request, reply) => {
+    const query = request.query.query?.trim();
+    if (!query) {
+      return reply.status(400).send({
+        error: "bad_request",
+        message: "query is required",
+      });
+    }
+    const end = request.query.end ?? String(Math.floor(Date.now() / 1000));
+    const start =
+      request.query.start ??
+      String(Number(end) - 30 * 60);
+    const step = request.query.step ?? "30s";
+    try {
+      const result = await ctx.prometheus.rangeQuery(query, start, end, step);
+      return { live: true, query, start, end, step, result };
+    } catch (err) {
+      return reply.status(503).send({
+        error: "prometheus_unavailable",
+        message: err instanceof Error ? err.message : "Prometheus unavailable",
+        hint: "Run `make obs-up` to start Prometheus on :9090.",
+      });
+    }
+  });
+
+  app.get("/api/observability/alerts", async (_request, reply) => {
+    try {
+      const result = await ctx.prometheus.activeAlerts();
+      return { live: true, result };
+    } catch (err) {
+      return reply.status(503).send({
+        error: "prometheus_unavailable",
+        message: err instanceof Error ? err.message : "Prometheus unavailable",
+        hint: "Run `make obs-up` to start Prometheus on :9090.",
+      });
+    }
+  });
+
+  app.get<{
+    Querystring: {
+      query?: string;
+      service?: string;
+      start?: string;
+      end?: string;
+      limit?: string;
+    };
+  }>("/api/observability/logs", async (request, reply) => {
+    const service = request.query.service?.trim() || "checkout-api";
+    const query =
+      request.query.query?.trim() ||
+      `{service="${service}"} |~ "(?i)panic|error|ValidatePaymentToken"`;
+    const endNs =
+      request.query.end ?? `${BigInt(Date.now()) * 1_000_000n}`;
+    const startNs =
+      request.query.start ??
+      `${BigInt(Date.now() - 30 * 60_000) * 1_000_000n}`;
+    const limit = request.query.limit ? Number(request.query.limit) : 100;
+    try {
+      const items = await ctx.loki.queryRange(
+        query,
+        startNs,
+        endNs,
+        Number.isFinite(limit) ? limit : 100
+      );
+      return {
+        live: true,
+        query,
+        items,
+        count: items.length,
+      };
+    } catch (err) {
+      return reply.status(503).send({
+        error: "loki_unavailable",
+        message: err instanceof Error ? err.message : "Loki unavailable",
+        hint: "Run `make obs-up` to start Loki on :3100.",
+      });
+    }
+  });
 
   app.get<{ Params: { id: string } }>(
     "/api/incidents/:id/investigation",

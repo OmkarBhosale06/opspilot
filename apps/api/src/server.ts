@@ -10,6 +10,7 @@ import { KubernetesMonitorService } from "./services/kubernetes-monitor.js";
 import { registerRoutes } from "./routes/index.js";
 import type { AppContext } from "./controllers/index.js";
 import { startAgentSimulator } from "./services/agent-simulator.js";
+import { ObservabilityService } from "./services/observability-service.js";
 import { createReqId, loggerOptions } from "./logging.js";
 
 export type BuildOptions = {
@@ -58,6 +59,7 @@ export async function buildServer(
   const k8s = new KubernetesMonitorService(k8sClient, bus, config, app.log);
   const prometheus = PrometheusClient.fromConfig(config, app.log);
   const loki = LokiClient.fromConfig(config, app.log);
+  const observability = new ObservabilityService(prometheus, loki, config);
   const postgres = PostgresClient.fromConfig(config);
   const redis = RedisClient.fromConfig(config);
   await postgres.connect();
@@ -70,6 +72,7 @@ export async function buildServer(
     bus,
     prometheus,
     loki,
+    observability,
     postgres,
     redis,
   };

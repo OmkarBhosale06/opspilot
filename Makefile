@@ -1,4 +1,4 @@
-.PHONY: install dev dev-api dev-web build kind-up kind-apply
+.PHONY: install dev dev-api dev-web build kind-up kind-apply obs-up obs-down obs-logs data-up data-down
 
 install:
 	npm install
@@ -22,3 +22,20 @@ kind-up:
 kind-apply:
 	kubectl apply -f infrastructure/kubernetes/base/namespace.yaml || kubectl create namespace opspilot
 	kubectl apply -f infrastructure/kubernetes/base/test-app.yaml
+
+# Phase 4 — Prometheus + Loki + demo checkout-api telemetry
+obs-up:
+	docker compose -f infrastructure/observability/docker-compose.yml up -d --build
+
+obs-down:
+	docker compose -f infrastructure/observability/docker-compose.yml down
+
+obs-logs:
+	docker compose -f infrastructure/observability/docker-compose.yml logs -f --tail=100
+
+# Phase 7 — optional Postgres + Redis (API still in-memory until persistence is wired)
+data-up:
+	docker compose -f infrastructure/data/docker-compose.yml up -d
+
+data-down:
+	docker compose -f infrastructure/data/docker-compose.yml down

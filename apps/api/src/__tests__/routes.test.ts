@@ -10,6 +10,7 @@ import type { PrometheusClient } from "../clients/prometheus/client.js";
 import type { LokiClient } from "../clients/loki/client.js";
 import type { PostgresClient, RedisClient } from "../clients/data-stores.js";
 import type { PodDto, DeploymentDto, K8sEventDto } from "../types/dto.js";
+import { ObservabilityService } from "../services/observability-service.js";
 
 const pod: PodDto = {
   name: "demo-api-abc",
@@ -93,13 +94,33 @@ function fakeK8s(overrides: Partial<KubernetesMonitorService> = {}) {
 
 async function buildTestApp(k8s: KubernetesMonitorService) {
   const app = Fastify({ logger: false });
+  const config = loadConfig({ NODE_ENV: "test" });
+  const prometheus = {
+    health: async () => false,
+    instantQuery: async () => {
+      throw new Error("prometheus down");
+    },
+    rangeQuery: async () => {
+      throw new Error("prometheus down");
+    },
+    activeAlerts: async () => {
+      throw new Error("prometheus down");
+    },
+  } as unknown as PrometheusClient;
+  const loki = {
+    health: async () => false,
+    queryRange: async () => {
+      throw new Error("loki down");
+    },
+  } as unknown as LokiClient;
   const ctx: AppContext = {
-    config: loadConfig({ NODE_ENV: "test" }),
+    config,
     k8sClient: { markDisconnected: () => undefined } as unknown as KubernetesClient,
     k8s,
     bus: new EventBus(),
-    prometheus: { health: async () => false } as unknown as PrometheusClient,
-    loki: { health: async () => false } as unknown as LokiClient,
+    prometheus,
+    loki,
+    observability: new ObservabilityService(prometheus, loki, config),
     postgres: { health: async () => false } as unknown as PostgresClient,
     redis: { health: async () => false } as unknown as RedisClient,
   };
@@ -164,6 +185,37 @@ describe("API routes", () => {
     const res = await app.inject({ method: "GET", url: "/api/pods" });
     expect(res.statusCode).toBe(503);
     expect(res.json().error).toBe("kubernetes_unavailable");
+    await app.close();
+  });
+
+  it("GET /api/observability/overview degrades when telemetry is down", async () => {
+    const app = await buildTestApp(fakeK8s());
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/observability/overview",
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      status: "degraded",
+      prometheusAvailable: false,
+      lokiAvailable: false,
+      service: "checkout-api",
+    });
+    await app.close();
+  });
+
+  it("GET /api/incidents/:id/telemetry returns seed incident series state", async () => {
+    const app = await buildTestApp(fakeK8s());
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/incidents/INC-1042/telemetry",
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      incidentId: "INC-1042",
+      service: "checkout-api",
+      live: false,
+    });
     await app.close();
   });
 });

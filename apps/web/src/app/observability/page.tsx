@@ -1,11 +1,40 @@
-import { PhasePlaceholder } from "@/components/layout/phase-placeholder";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { AppShell } from "@/components/layout/app-shell";
+import { PageHeader } from "@/components/layout/page-header";
+import { ObservabilityDashboard } from "@/components/observability/observability-dashboard";
+import { ErrorState, LoadingBlock } from "@/components/ui/states";
+import { getObservabilityOverview } from "@/services/observability";
+import { ApiError } from "@/lib/api";
 
 export default function ObservabilityPage() {
+  const overview = useQuery({
+    queryKey: ["observability", "overview", "checkout-api"],
+    queryFn: () => getObservabilityOverview("checkout-api"),
+    refetchInterval: 10_000,
+  });
+
   return (
-    <PhasePlaceholder
-      title="Observability"
-      description="Prometheus and Loki will answer error rate, latency, and log evidence."
-      detail="Adapters exist on the API. This screen stays empty until live queries attach to incidents. Use the command center error-rate and evidence panels until then."
-    />
+    <AppShell title="Observability">
+      <PageHeader
+        title="Observability"
+        description="Prometheus metrics and Loki logs for the active investigation surface."
+      />
+
+      {overview.isLoading ? <LoadingBlock rows={6} /> : null}
+      {overview.isError ? (
+        <ErrorState
+          title="Unable to load observability"
+          description={
+            overview.error instanceof ApiError
+              ? overview.error.message
+              : "API unreachable. Start the control plane on :4000."
+          }
+        />
+      ) : null}
+
+      {overview.data ? <ObservabilityDashboard data={overview.data} /> : null}
+    </AppShell>
   );
 }

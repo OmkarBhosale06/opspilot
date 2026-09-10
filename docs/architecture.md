@@ -30,10 +30,21 @@ Node.js owns Kubernetes watches and fans out SSE:
 
 ## Phased delivery
 
-1. K8s → API → SSE → dashboard (pods, deployments, events, overview)
-2. Incident Command Center
-3. Deployment snapshots
-4. Prometheus / Loki
-5. LangGraph agent
-6. Policy / Executor / Verifier
-7. Memory / RAG
+1. K8s → API → SSE → dashboard (pods, deployments, events, overview) — **done**
+2. Incident Command Center — **done**
+3. Deployment snapshots — **done**
+4. Prometheus / Loki — **in progress**
+   - Local stack: `make obs-up` (Prometheus `:9090`, Loki `:3100`, demo telemetry)
+   - API: `/api/observability/*`, `/api/incidents/:id/telemetry`
+   - UI: `/observability` + live error-rate/evidence on INC-1042 when backends are up
+5. LangGraph agent — replace `agent-simulator.ts`; Python runtime under `agent/`
+6. Policy / Executor / Verifier — approve → execute → verify (no free-form kubectl)
+7. Memory / RAG — Postgres + Redis (`make data-up`); persist incidents and similar recall
+
+## Local dependencies by phase
+
+| Phase | Bring up with | Ports |
+|-------|---------------|-------|
+| 1–3 | `make kind-up && make kind-apply` | Kind API via kubeconfig |
+| 4 | `make obs-up` | 9090, 3100, 9101 |
+| 7 | `make data-up` | 5432, 6379 |

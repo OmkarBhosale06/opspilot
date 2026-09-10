@@ -5,6 +5,56 @@ export type HealthResponse = {
   cluster: string;
   k8sConnected: boolean;
   timestamp: string;
+  dependencies?: {
+    kubernetes: boolean;
+    prometheus: boolean;
+    loki: boolean;
+    postgres: boolean;
+    redis: boolean;
+  };
+};
+
+export type MetricPoint = {
+  t: string;
+  value: number;
+  timestamp?: number;
+};
+
+export type ObservabilityStatus = {
+  status: "live" | "degraded";
+  prometheus: { available: boolean; url: string };
+  loki: { available: boolean; url: string };
+  timestamp: string;
+};
+
+export type ObservabilityOverview = {
+  status: "live" | "degraded";
+  prometheusAvailable: boolean;
+  lokiAvailable: boolean;
+  service: string;
+  errorRate: {
+    live: boolean;
+    query: string;
+    current: number | null;
+    unit: "%";
+    series: MetricPoint[];
+  };
+  alerts: Array<{
+    name: string;
+    state: string;
+    severity: string | null;
+    summary: string | null;
+    labels: Record<string, string>;
+    activeAt: string | null;
+    value: string | null;
+  }>;
+  recentLogs: Array<{
+    timestamp: string;
+    line: string;
+    labels: Record<string, string>;
+  }>;
+  timestamp: string;
+  message?: string;
 };
 
 export type OverviewResponse = {
@@ -122,6 +172,22 @@ export type EvidenceItem = {
   source: string;
   timestamp: string;
   data?: unknown;
+};
+
+export type IncidentTelemetry = {
+  incidentId: string;
+  service: string;
+  live: boolean;
+  prometheusAvailable: boolean;
+  lokiAvailable: boolean;
+  errorRate: {
+    live: boolean;
+    query: string;
+    current: number | null;
+    series: MetricPoint[];
+  };
+  liveEvidence: EvidenceItem[];
+  timestamp: string;
 };
 
 export type RootCauseHypothesis = {
