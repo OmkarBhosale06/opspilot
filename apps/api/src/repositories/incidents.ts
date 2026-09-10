@@ -54,6 +54,14 @@ export type PolicyState = {
   reason: string;
 };
 
+export type ExecutionState = {
+  status: "blocked" | "queued" | "running" | "completed" | "failed";
+  action: "rollback" | "restart" | null;
+  detail: string;
+  startedAt: string | null;
+  completedAt: string | null;
+};
+
 export type VerificationState = {
   status: "not_started" | "in_progress" | "passed" | "failed";
   checks: Array<{
@@ -84,6 +92,7 @@ export type Incident = {
   rootCause: RootCauseHypothesis;
   remediation: RemediationPlan;
   policy: PolicyState;
+  execution: ExecutionState;
   verification: VerificationState;
   relatedDeployments: Array<{
     name: string;
@@ -365,6 +374,13 @@ function seedInc1042(): Incident {
       policyId: "prod-sev1-rollback",
       reason: "SEV1 production rollback requires on-call approval before mutation",
     },
+    execution: {
+      status: "blocked",
+      action: "rollback",
+      detail: "Waiting for policy authorization",
+      startedAt: null,
+      completedAt: null,
+    },
     verification: {
       status: "not_started",
       checks: [
@@ -524,6 +540,13 @@ export function buildIncident(input: CreateIncidentInput, id: string): Incident 
       policyId: "prod-mutation-gate",
       reason: "Production mutation requires on-call approval before the executor runs",
     },
+    execution: {
+      status: "blocked",
+      action: scenario === "crashloop" || scenario === "imagepull" ? "restart" : "rollback",
+      detail: "Waiting for policy authorization",
+      startedAt: null,
+      completedAt: null,
+    },
     verification: {
       status: "not_started",
       checks: [
@@ -626,6 +649,14 @@ class IncidentStore {
       ...current,
       updatedAt: at,
       status: approved ? "mitigating" : current.status,
+      execution: approved
+        ? {
+            ...current.execution,
+            status: "queued",
+            action: current.remediation.action === "restart" ? "restart" : "rollback",
+            detail: "Policy authorized; executor queued allowlisted mutation",
+          }
+        : current.execution,
       policy: {
         ...current.policy,
         approvals,

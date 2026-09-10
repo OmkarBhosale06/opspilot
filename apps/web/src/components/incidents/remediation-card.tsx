@@ -7,19 +7,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StatusDot } from "@/components/ui/status-dot";
-import type { PolicyState, RemediationPlan, VerificationState } from "@/types";
+import type {
+  ExecutionState,
+  PolicyState,
+  RemediationPlan,
+  VerificationState,
+} from "@/types";
 
 export function RemediationCard({
   incidentId,
   remediation,
   policy,
   verification,
+  execution,
   onApprove,
 }: {
   incidentId: string;
   remediation: RemediationPlan;
   policy: PolicyState;
   verification: VerificationState;
+  execution?: ExecutionState;
   onApprove?: () => Promise<void> | void;
 }) {
   const [pending, setPending] = useState(false);
@@ -102,6 +109,29 @@ export function RemediationCard({
             }
           />
           <Fact label="Expected outcome" value={remediation.estimatedImpact} />
+          <Fact
+            label="Executor"
+            value={
+              execution?.detail ??
+              "Blocked until policy records the required approval"
+            }
+            badge={
+              <Badge
+                variant={
+                  execution?.status === "completed"
+                    ? "healthy"
+                    : execution?.status === "failed"
+                      ? "critical"
+                      : execution?.status === "running" ||
+                          execution?.status === "queued"
+                        ? "info"
+                        : "warning"
+                }
+              >
+                {execution?.status ?? "blocked"}
+              </Badge>
+            }
+          />
         </dl>
 
         <div className="rounded-md border border-border-subtle bg-muted/25 px-3 py-2.5">
@@ -150,12 +180,14 @@ export function RemediationCard({
               ? "Approving…"
               : approved
                 ? "Approved"
-                : "Approve rollback"}
+                : `Approve ${remediation.action}`}
           </Button>
           <p className="text-[10px] text-muted-foreground">
-            {approved
-              ? "Policy authorized. Executor will not kubectl until phase 6."
-              : `Approval is live for ${incidentId}. Cluster mutation is still gated.`}
+            {execution?.detail
+              ? execution.detail
+              : approved
+                ? "Policy authorized. Executor will run an allowlisted restart or rollback."
+                : `Approval is live for ${incidentId}. The executor mutates only allowlisted deployments.`}
           </p>
           {error ? (
             <p className="w-full text-[11px] text-status-critical">{error}</p>

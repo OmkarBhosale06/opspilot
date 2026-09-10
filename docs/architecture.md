@@ -42,7 +42,10 @@ Node.js owns Kubernetes watches and fans out SSE:
    - API calls `AGENT_URL` on `incident.created`; falls back to local k8s investigation
    - K8s detector opens incidents from CrashLoop / ImagePull
    - Simulation: `make sim` / `make sim-reset` (`scripts/test_simulation/config.env`)
-6. Policy / Executor / Verifier — approve records policy (**wired**); executor does not kubectl yet
+6. Policy / Executor / Verifier — **started**
+   - Approve records policy, then the executor runs allowlisted `restart` or `rollback` only
+   - Namespaces: `MUTATION_NAMESPACES` (default `NAMESPACE`)
+   - Verifier polls Ready replicas + CrashLoop/ImagePull, then marks the incident resolved or failed
 7. Memory / RAG — Postgres + Redis (`make data-up`); persist incidents and similar recall
 
 ## Local dependencies by phase

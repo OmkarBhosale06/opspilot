@@ -14,6 +14,7 @@ import { AgentClient } from "./services/agent-client.js";
 import { startIncidentDetector } from "./services/incident-detector.js";
 import { startInvestigationRunner } from "./services/investigation-runner.js";
 import { ObservabilityService } from "./services/observability-service.js";
+import { RemediationPipeline } from "./services/remediation-pipeline.js";
 import { createFnLog, createReqId, loggerOptions } from "./logging.js";
 
 export type BuildOptions = {
@@ -79,6 +80,7 @@ export async function buildServer(
     observability,
     postgres,
     redis,
+    remediation: new RemediationPipeline(config, k8s, bus, app.log),
   };
 
   await app.register(registerRoutes, { ctx });

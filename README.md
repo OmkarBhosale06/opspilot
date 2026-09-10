@@ -93,9 +93,9 @@ See [docs/architecture.md](docs/architecture.md).
 3. Deployment snapshots — **done**
 4. Prometheus / Loki — **in progress** (`make obs-up`)
 5. LangGraph agent
-6. Policy / Executor / Verifier
+6. Policy / Executor / Verifier — **started** (approve → allowlisted mutate → verify)
 7. Memory / RAG (Postgres + Redis)
 
 ## Security
 
-Kubeconfig and Kubernetes credentials never leave the Node.js control plane. Mutation endpoints are not implemented yet.
+Kubeconfig and Kubernetes credentials never leave the Node.js control plane. Mutations are allowlisted (`restart` / `rollback` in `MUTATION_NAMESPACES`) and run only after policy approval.

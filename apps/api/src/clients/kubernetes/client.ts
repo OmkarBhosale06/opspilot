@@ -282,6 +282,108 @@ export class KubernetesClient {
       .sort((a, b) => Number(b.revision ?? 0) - Number(a.revision ?? 0));
   }
 
+  async restartDeployment(
+    name: string,
+    namespace: string
+  ): Promise<{ action: "restart"; name: string; namespace: string; detail: string }> {
+    const { apps } = await this.ensureConnected();
+    const dep = await timed(
+      this.log,
+      "KubernetesClient.restartDeployment",
+      { client: "k8s", op: "readDeployment", name, namespace },
+      "k8s readDeployment",
+      () => apps.readNamespacedDeployment({ name, namespace })
+    );
+    dep.spec = dep.spec ?? {};
+    dep.spec.template = dep.spec.template ?? {};
+    dep.spec.template.metadata = dep.spec.template.metadata ?? {};
+    dep.spec.template.metadata.annotations = {
+      ...(dep.spec.template.metadata.annotations ?? {}),
+      "kubectl.kubernetes.io/restartedAt": new Date().toISOString(),
+    };
+    await timed(
+      this.log,
+      "KubernetesClient.restartDeployment",
+      { client: "k8s", op: "replaceDeployment", name, namespace },
+      "k8s replaceDeployment",
+      () =>
+        apps.replaceNamespacedDeployment({
+          name,
+          namespace,
+          body: dep,
+        })
+    );
+    return {
+      action: "restart",
+      name,
+      namespace,
+      detail: `Rolled out ${namespace}/${name} via restartedAt annotation`,
+    };
+  }
+
+  async rollbackDeployment(
+    name: string,
+    namespace: string
+  ): Promise<{
+    action: "rollback";
+    name: string;
+    namespace: string;
+    detail: string;
+    fromImages: string[];
+    toImages: string[];
+  }> {
+    const { apps } = await this.ensureConnected();
+    const dep = await timed(
+      this.log,
+      "KubernetesClient.rollbackDeployment",
+      { client: "k8s", op: "readDeployment", name, namespace },
+      "k8s readDeployment",
+      () => apps.readNamespacedDeployment({ name, namespace })
+    );
+    const snapshots = await this.listDeploymentSnapshots(name, namespace);
+    const currentImages = (dep.spec?.template?.spec?.containers ?? []).map(
+      (c) => c.image ?? ""
+    );
+    const previous = snapshots.find((snap) => {
+      if (!snap.images.length) return false;
+      return snap.images.join(",") !== currentImages.join(",");
+    });
+    if (!previous) {
+      throw new Error(
+        `No previous ReplicaSet with different images for ${namespace}/${name}`
+      );
+    }
+    const containers = dep.spec?.template?.spec?.containers ?? [];
+    if (!containers.length) {
+      throw new Error(`Deployment ${namespace}/${name} has no containers`);
+    }
+    containers.forEach((container, index) => {
+      const image = previous.images[index] ?? previous.images[0];
+      if (image) container.image = image;
+    });
+    await timed(
+      this.log,
+      "KubernetesClient.rollbackDeployment",
+      { client: "k8s", op: "replaceDeployment", name, namespace },
+      "k8s replaceDeployment",
+      () =>
+        apps.replaceNamespacedDeployment({
+          name,
+          namespace,
+          body: dep,
+        })
+    );
+    const toImages = containers.map((c) => c.image ?? "");
+    return {
+      action: "rollback",
+      name,
+      namespace,
+      fromImages: currentImages,
+      toImages,
+      detail: `Rolled back ${namespace}/${name} ${currentImages.join(",")} → ${toImages.join(",")}`,
+    };
+  }
+
   async listServices(namespace: string): Promise<ServiceDto[]> {
     const { core } = await this.ensureConnected();
     const res = await timed(

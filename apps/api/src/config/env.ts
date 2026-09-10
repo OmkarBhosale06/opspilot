@@ -12,6 +12,10 @@ const envSchema = z.object({
   PROMETHEUS_URL: z.string().default("http://localhost:9090"),
   LOKI_URL: z.string().default("http://localhost:3100"),
   AGENT_URL: z.string().default("http://localhost:8090"),
+  MUTATION_NAMESPACES: z.string().optional(),
+  ENABLE_EXECUTOR: z.enum(["0", "1", "true", "false"]).optional(),
+  VERIFY_TIMEOUT_MS: z.coerce.number().default(60_000),
+  VERIFY_POLL_MS: z.coerce.number().default(2_000),
   ENABLE_AGENT_SIMULATOR: z
     .enum(["0", "1", "true", "false"])
     .optional(),
@@ -45,6 +49,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     PROMETHEUS_URL: env.PROMETHEUS_URL,
     LOKI_URL: env.LOKI_URL,
     AGENT_URL: env.AGENT_URL,
+    MUTATION_NAMESPACES: env.MUTATION_NAMESPACES,
+    ENABLE_EXECUTOR: env.ENABLE_EXECUTOR,
+    VERIFY_TIMEOUT_MS: env.VERIFY_TIMEOUT_MS,
+    VERIFY_POLL_MS: env.VERIFY_POLL_MS,
     ENABLE_AGENT_SIMULATOR: env.ENABLE_AGENT_SIMULATOR,
     LOG_LEVEL: env.LOG_LEVEL,
   });

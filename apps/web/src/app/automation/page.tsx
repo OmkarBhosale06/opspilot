@@ -5,7 +5,7 @@ export default function AutomationPage() {
     <PhasePlaceholder
       title="Automation"
       description="Propose → authorize → execute → verify. No free-form kubectl."
-      detail="Approval currently lives on the incident command center. Executor and verifier are not implemented yet."
+      detail="Approve on the incident command center. The executor then runs an allowlisted restart or rollback and the verifier checks replica readiness."
     />
   );
 }

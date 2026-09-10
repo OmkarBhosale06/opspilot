@@ -53,6 +53,7 @@ export default function IncidentCommandCenterPage() {
         event.type.startsWith("incident.") ||
         event.type.startsWith("policy.") ||
         event.type.startsWith("remediation.") ||
+        event.type.startsWith("verification.") ||
         event.step
       ) {
         void queryClient.invalidateQueries({ queryKey: ["incident", id] });
@@ -125,6 +126,7 @@ export default function IncidentCommandCenterPage() {
             remediation={data.remediation}
             policy={data.policy}
             verification={data.verification}
+            execution={data.execution}
             onApprove={async () => {
               await approveIncident(data.id, { actor: "oncall@local" });
               await queryClient.invalidateQueries({ queryKey: ["incident", id] });

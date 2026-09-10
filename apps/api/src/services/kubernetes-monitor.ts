@@ -104,6 +104,14 @@ export class KubernetesMonitorService {
     return this.client.listDeploymentSnapshots(name, namespace);
   }
 
+  restartDeployment(name: string, namespace = this.config.NAMESPACE) {
+    return this.client.restartDeployment(name, namespace);
+  }
+
+  rollbackDeployment(name: string, namespace = this.config.NAMESPACE) {
+    return this.client.rollbackDeployment(name, namespace);
+  }
+
   listServices(namespace = this.config.NAMESPACE): Promise<ServiceDto[]> {
     return this.client.listServices(namespace);
   }

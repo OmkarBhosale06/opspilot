@@ -12,6 +12,7 @@ import type { PrometheusClient } from "../clients/prometheus/client.js";
 import type { LokiClient } from "../clients/loki/client.js";
 import type { PostgresClient, RedisClient } from "../clients/data-stores.js";
 import type { ObservabilityService } from "../services/observability-service.js";
+import type { RemediationPipeline } from "../services/remediation-pipeline.js";
 
 export type AppContext = {
   config: Config;
@@ -23,6 +24,7 @@ export type AppContext = {
   observability: ObservabilityService;
   postgres: PostgresClient;
   redis: RedisClient;
+  remediation: RemediationPipeline;
 };
 
 export function registerControllers(app: FastifyInstance, ctx: AppContext) {
@@ -248,11 +250,30 @@ export function registerControllers(app: FastifyInstance, ctx: AppContext) {
         message: `${actor} approved ${result.incident.id}`,
         status: result.incident.policy.status,
       });
+      const authorized =
+        result.incident.policy.status === "approved" ||
+        result.incident.policy.status === "auto-approved";
+      const execStatus = result.incident.execution.status;
+      if (
+        authorized &&
+        (execStatus === "queued" || execStatus === "blocked")
+      ) {
+        const run = ctx.remediation.enqueue(result.incident.id);
+        if (ctx.config.NODE_ENV === "test") {
+          await run;
+        } else {
+          void run;
+        }
+      }
+      const latest = incidentStore.get(result.incident.id) ?? result.incident;
       return {
         already: result.already,
-        executor: "not_started",
-        hint: "Policy recorded. Executor will not mutate Kubernetes until phase 6.",
-        incident: result.incident,
+        executor: latest.execution.status,
+        hint:
+          latest.execution.status === "blocked"
+            ? "Policy recorded. Executor is disabled."
+            : latest.execution.detail,
+        incident: latest,
       };
     }
   );

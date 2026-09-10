@@ -216,6 +216,14 @@ export type PolicyState = {
   reason: string;
 };
 
+export type ExecutionState = {
+  status: "blocked" | "queued" | "running" | "completed" | "failed";
+  action: "rollback" | "restart" | null;
+  detail: string;
+  startedAt: string | null;
+  completedAt: string | null;
+};
+
 export type VerificationState = {
   status: "not_started" | "in_progress" | "passed" | "failed";
   checks: Array<{
@@ -250,6 +258,7 @@ export type Incident = IncidentSummary & {
   rootCause: RootCauseHypothesis;
   remediation: RemediationPlan;
   policy: PolicyState;
+  execution?: ExecutionState;
   verification: VerificationState;
   relatedDeployments?: Array<{
     name: string;

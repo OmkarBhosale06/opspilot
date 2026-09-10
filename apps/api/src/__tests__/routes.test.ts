@@ -11,6 +11,7 @@ import type { LokiClient } from "../clients/loki/client.js";
 import type { PostgresClient, RedisClient } from "../clients/data-stores.js";
 import type { PodDto, DeploymentDto, K8sEventDto } from "../types/dto.js";
 import { ObservabilityService } from "../services/observability-service.js";
+import { RemediationPipeline } from "../services/remediation-pipeline.js";
 
 const pod: PodDto = {
   name: "demo-api-abc",
@@ -74,7 +75,10 @@ function fakeK8s(overrides: Partial<KubernetesMonitorService> = {}) {
     listNamespaces: async () => [
       { name: "opspilot", status: "Active", labels: {}, createdAt: null },
     ],
-    listPods: async () => [pod],
+    listPods: async () => [
+      pod,
+      { ...pod, name: "demo-api-def" },
+    ],
     getPod: async () => pod,
     getPodLogs: async () => ({
       pod: pod.name,
@@ -88,13 +92,31 @@ function fakeK8s(overrides: Partial<KubernetesMonitorService> = {}) {
     listServices: async () => [],
     listEvents: async () => [event],
     probe: async () => true,
+    restartDeployment: async () => ({
+      action: "restart" as const,
+      name: "demo-api",
+      namespace: "opspilot",
+      detail: "Rolled out opspilot/demo-api via restartedAt annotation",
+    }),
+    rollbackDeployment: async () => ({
+      action: "rollback" as const,
+      name: "demo-api",
+      namespace: "opspilot",
+      fromImages: ["nginx:bad"],
+      toImages: ["nginx:1.27"],
+      detail: "Rolled back opspilot/demo-api nginx:bad → nginx:1.27",
+    }),
     ...overrides,
   } as unknown as KubernetesMonitorService;
 }
 
 async function buildTestApp(k8s: KubernetesMonitorService) {
   const app = Fastify({ logger: false });
-  const config = loadConfig({ NODE_ENV: "test" });
+  const config = loadConfig({
+    NODE_ENV: "test",
+    VERIFY_TIMEOUT_MS: "20",
+    VERIFY_POLL_MS: "5",
+  });
   const prometheus = {
     health: async () => false,
     instantQuery: async () => {
@@ -113,16 +135,18 @@ async function buildTestApp(k8s: KubernetesMonitorService) {
       throw new Error("loki down");
     },
   } as unknown as LokiClient;
+  const bus = new EventBus();
   const ctx: AppContext = {
     config,
     k8sClient: { markDisconnected: () => undefined } as unknown as KubernetesClient,
     k8s,
-    bus: new EventBus(),
+    bus,
     prometheus,
     loki,
     observability: new ObservabilityService(prometheus, loki, config),
     postgres: { health: async () => false } as unknown as PostgresClient,
     redis: { health: async () => false } as unknown as RedisClient,
+    remediation: new RemediationPipeline(config, k8s, bus),
   };
   registerControllers(app, ctx);
   await app.ready();
@@ -147,7 +171,7 @@ describe("API routes", () => {
     const res = await app.inject({ method: "GET", url: "/api/pods" });
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body.count).toBe(1);
+    expect(body.count).toBe(2);
     expect(body.items[0].name).toBe("demo-api-abc");
     expect(body.items[0].ready).toBe(true);
     await app.close();
@@ -230,7 +254,40 @@ describe("API routes", () => {
     expect(approved.statusCode).toBe(200);
     expect(approved.json().incident.policy.status).toBe("approved");
     expect(approved.json().incident.policy.approvals[0].actor).toBe("tester@local");
-    expect(approved.json().executor).toBe("not_started");
+    expect(approved.json().executor).toBe("completed");
+    expect(approved.json().incident.execution.status).toBe("completed");
+    expect(approved.json().incident.verification.status).toBe("passed");
+    expect(approved.json().incident.status).toBe("resolved");
+    await app.close();
+  });
+
+  it("POST /api/incidents/:id/approve records executor failure when mutation is denied by the cluster", async () => {
+    const app = await buildTestApp(
+      fakeK8s({
+        restartDeployment: async () => {
+          throw new Error("Forbidden: cannot patch deployments");
+        },
+      })
+    );
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/incidents",
+      payload: {
+        title: "demo-api crash loop (test)",
+        service: "demo-api",
+        namespace: "opspilot",
+        scenario: "crashloop",
+      },
+    });
+    const incident = created.json();
+    const approved = await app.inject({
+      method: "POST",
+      url: `/api/incidents/${incident.id}/approve`,
+      payload: { actor: "tester@local" },
+    });
+    expect(approved.statusCode).toBe(200);
+    expect(approved.json().executor).toBe("failed");
+    expect(approved.json().incident.execution.detail).toMatch(/Forbidden/);
     await app.close();
   });
 });

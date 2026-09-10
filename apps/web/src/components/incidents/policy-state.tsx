@@ -42,7 +42,17 @@ export function PolicyExecutionState({
                   : "info"
           }
           value={executionStatus}
-          detail="Awaiting authorization"
+          detail={
+            executionStatus === "blocked"
+              ? "Awaiting authorization"
+              : executionStatus === "queued"
+                ? "Policy authorized; mutation queued"
+                : executionStatus === "running"
+                  ? "Allowlisted kubectl in progress"
+                  : executionStatus === "completed"
+                    ? "Mutation applied"
+                    : "Mutation failed"
+          }
         />
         <Row
           label="Verification"
