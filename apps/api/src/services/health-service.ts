@@ -26,8 +26,11 @@ export async function getHealthReport(
   postgresOk: boolean,
   redisOk: boolean
 ): Promise<HealthReport> {
-  const [prom, lokiOk] = await Promise.all([prometheus.health(), loki.health()]);
-  const k8sConnected = k8s.connected;
+  const [prom, lokiOk, k8sConnected] = await Promise.all([
+    prometheus.health(),
+    loki.health(),
+    k8s.probe(),
+  ]);
   const status = k8sConnected ? "ok" : "degraded";
   return {
     status,
@@ -53,7 +56,8 @@ export async function getOverview(
     (i) => i.status !== "resolved" && i.status !== "closed"
   );
 
-  if (!k8s.connected) {
+  const k8sConnected = await k8s.probe();
+  if (!k8sConnected) {
     return {
       cluster: config.CLUSTER_ID,
       namespace: config.NAMESPACE,
@@ -77,7 +81,7 @@ export async function getOverview(
   const [pods, deployments, events] = await Promise.all([
     k8s.listPods(ns),
     k8s.listDeployments(ns),
-    k8s.listEvents(ns),
+    k8s.listEvents(),
   ]);
 
   const readyPods = pods.filter((p) => p.ready).length;

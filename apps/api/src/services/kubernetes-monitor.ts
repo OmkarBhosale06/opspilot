@@ -28,6 +28,7 @@ type RequestWatch = {
 export class KubernetesMonitorService {
   private watches: RequestWatch[] = [];
   private stopped = false;
+  private reconnectTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private readonly client: KubernetesClient,
@@ -103,20 +104,34 @@ export class KubernetesMonitorService {
     return this.client.listServices(namespace);
   }
 
-  listEvents(namespace = this.config.NAMESPACE): Promise<K8sEventDto[]> {
+  listEvents(namespace?: string): Promise<K8sEventDto[]> {
     return this.client.listEvents(namespace);
   }
 
   async start(): Promise<void> {
+    this.stopped = false;
+    await this.reconnect();
+    this.reconnectTimer = setInterval(() => {
+      void this.reconnect();
+    }, 10_000);
+  }
+
+  private async reconnect(): Promise<void> {
+    if (this.stopped) return;
     const ok = await this.client.probe();
     if (!ok) {
+      this.abortWatches();
       this.log.warn(
         { err: this.client.lastError },
-        "Kubernetes watch skipped — cluster unreachable"
+        "Kubernetes unreachable — will retry"
       );
       return;
     }
-    this.stopped = false;
+    if (this.watches.length > 0) return;
+    this.beginWatches();
+  }
+
+  private beginWatches(): void {
     const ns = this.config.NAMESPACE;
     this.watchPath(`/api/v1/namespaces/${ns}/pods`, (phase, obj) => {
       const pod = toPodDto(obj as k8s.V1Pod);
@@ -158,7 +173,7 @@ export class KubernetesMonitorService {
         data: svc,
       });
     });
-    this.watchPath(`/api/v1/namespaces/${ns}/events`, (phase, obj) => {
+    this.watchPath(`/api/v1/events`, (phase, obj) => {
       const ev = toEventDto(obj as k8s.CoreV1Event);
       const verb = watchPhaseToVerb(phase);
       this.bus.publish({
@@ -175,6 +190,14 @@ export class KubernetesMonitorService {
 
   stop(): void {
     this.stopped = true;
+    if (this.reconnectTimer) {
+      clearInterval(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.abortWatches();
+  }
+
+  private abortWatches(): void {
     for (const watch of this.watches) {
       try {
         watch.abort();
@@ -200,6 +223,11 @@ export class KubernetesMonitorService {
             if (this.stopped) return;
             if (err) {
               this.log.warn({ err, path }, "Kubernetes watch ended");
+              this.client.markDisconnected(
+                err instanceof Error ? err.message : "Kubernetes watch ended"
+              );
+              this.abortWatches();
+              return;
             }
             setTimeout(() => void run(), 5000);
           }

@@ -16,7 +16,9 @@ export function sendDomainError(
 
   if (err instanceof KubernetesUnavailableError || isUnavailable(err)) {
     const message = err instanceof Error ? err.message : "Kubernetes unavailable";
-    k8s?.markDisconnected(message);
+    if (isUnavailable(err)) {
+      k8s?.markDisconnected(message);
+    }
     return reply.status(503).send({
       error: "kubernetes_unavailable",
       message,

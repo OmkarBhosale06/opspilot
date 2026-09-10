@@ -158,9 +158,9 @@ export function registerControllers(app: FastifyInstance, ctx: AppContext) {
     "/api/events",
     async (request, reply) => {
       try {
-        const namespace = namespaceFromQuery(request.query, ctx.config.NAMESPACE);
-        const items = await ctx.k8s.listEvents(namespace);
-        return { namespace, items, count: items.length };
+        const namespace = request.query.namespace?.trim();
+        const items = await ctx.k8s.listEvents(namespace || undefined);
+        return { namespace: namespace || "all", items, count: items.length };
       } catch (err) {
         return sendDomainError(reply, err, ctx.k8sClient);
       }

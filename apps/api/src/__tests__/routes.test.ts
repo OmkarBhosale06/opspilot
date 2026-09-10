@@ -86,6 +86,7 @@ function fakeK8s(overrides: Partial<KubernetesMonitorService> = {}) {
     listSnapshots: async () => [],
     listServices: async () => [],
     listEvents: async () => [event],
+    probe: async () => true,
     ...overrides,
   } as unknown as KubernetesMonitorService;
 }

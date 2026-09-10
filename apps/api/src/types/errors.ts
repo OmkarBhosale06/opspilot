@@ -38,7 +38,7 @@ export function isUnavailable(err: unknown): boolean {
   const status = httpStatusOf(err);
   if (status === 503) return true;
   const message = err instanceof Error ? err.message : String(err);
-  return /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|ECONNRESET|unreachable|unavailable|fetch failed/i.test(
+  return /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|ECONNRESET|ENETUNREACH|EHOSTUNREACH|unreachable|fetch failed|kubeconfig/i.test(
     message
   );
 }

@@ -28,10 +28,14 @@ export type KubernetesApis = {
   watch: k8s.Watch;
 };
 
+const PROBE_COOLDOWN_MS = 2_000;
+
 export class KubernetesClient {
   private apis: KubernetesApis | null = null;
   private loadError: string | null = null;
   private liveConnected = false;
+  private lastProbeAt = 0;
+  private probeInFlight: Promise<boolean> | null = null;
 
   constructor(
     private readonly clusterId: string,
@@ -86,6 +90,29 @@ export class KubernetesClient {
   }
 
   async probe(): Promise<boolean> {
+    return this.probeThrottled(true);
+  }
+
+  markDisconnected(message: string): void {
+    this.liveConnected = false;
+    this.loadError = message;
+    this.lastProbeAt = 0;
+  }
+
+  private async probeThrottled(force = false): Promise<boolean> {
+    if (this.probeInFlight) return this.probeInFlight;
+    const now = Date.now();
+    if (!force && now - this.lastProbeAt < PROBE_COOLDOWN_MS) {
+      return this.liveConnected;
+    }
+    this.probeInFlight = this.doProbe().finally(() => {
+      this.probeInFlight = null;
+      this.lastProbeAt = Date.now();
+    });
+    return this.probeInFlight;
+  }
+
+  private async doProbe(): Promise<boolean> {
     if (!this.apis) {
       this.liveConnected = false;
       return false;
@@ -108,13 +135,26 @@ export class KubernetesClient {
     }
   }
 
-  markDisconnected(message: string): void {
-    this.liveConnected = false;
-    this.loadError = message;
+  private async ensureConnected(): Promise<KubernetesApis> {
+    if (this.liveConnected && this.apis) return this.apis;
+    if (!this.apis) {
+      throw new KubernetesUnavailableError(
+        this.loadError ??
+          "Ensure kind-opspilot is running and kubeconfig is configured."
+      );
+    }
+    const ok = await this.probeThrottled();
+    if (!ok || !this.apis) {
+      throw new KubernetesUnavailableError(
+        this.loadError ??
+          "Ensure kind-opspilot is running and kubeconfig is configured."
+      );
+    }
+    return this.apis;
   }
 
   async listNamespaces(): Promise<NamespaceDto[]> {
-    const { core } = this.requireApis();
+    const { core } = await this.ensureConnected();
     const res = await timed(
       this.log,
       { client: "k8s", op: "listNamespaces" },
@@ -125,7 +165,7 @@ export class KubernetesClient {
   }
 
   async listPods(namespace: string): Promise<PodDto[]> {
-    const { core } = this.requireApis();
+    const { core } = await this.ensureConnected();
     const res = await timed(
       this.log,
       { client: "k8s", op: "listPods", namespace },
@@ -136,7 +176,7 @@ export class KubernetesClient {
   }
 
   async getPod(name: string, namespace: string): Promise<PodDto | null> {
-    const { core } = this.requireApis();
+    const { core } = await this.ensureConnected();
     try {
       const pod = await timed(
         this.log,
@@ -156,7 +196,7 @@ export class KubernetesClient {
     namespace: string,
     options: { container?: string; tailLines?: number } = {}
   ): Promise<PodLogsDto | null> {
-    const { core } = this.requireApis();
+    const { core } = await this.ensureConnected();
     try {
       const text = await timed(
         this.log,
@@ -184,7 +224,7 @@ export class KubernetesClient {
   }
 
   async listDeployments(namespace: string): Promise<DeploymentDto[]> {
-    const { apps } = this.requireApis();
+    const { apps } = await this.ensureConnected();
     const res = await timed(
       this.log,
       { client: "k8s", op: "listDeployments", namespace },
@@ -198,7 +238,7 @@ export class KubernetesClient {
     name: string,
     namespace: string
   ): Promise<DeploymentDto | null> {
-    const { apps } = this.requireApis();
+    const { apps } = await this.ensureConnected();
     try {
       const dep = await timed(
         this.log,
@@ -217,7 +257,7 @@ export class KubernetesClient {
     name: string,
     namespace: string
   ): Promise<SnapshotDto[]> {
-    const { apps } = this.requireApis();
+    const { apps } = await this.ensureConnected();
     const res = await timed(
       this.log,
       { client: "k8s", op: "listReplicaSets", name, namespace },
@@ -235,7 +275,7 @@ export class KubernetesClient {
   }
 
   async listServices(namespace: string): Promise<ServiceDto[]> {
-    const { core } = this.requireApis();
+    const { core } = await this.ensureConnected();
     const res = await timed(
       this.log,
       { client: "k8s", op: "listServices", namespace },
@@ -245,13 +285,17 @@ export class KubernetesClient {
     return (res.items ?? []).map(toServiceDto);
   }
 
-  async listEvents(namespace: string): Promise<K8sEventDto[]> {
-    const { core } = this.requireApis();
+  async listEvents(namespace?: string): Promise<K8sEventDto[]> {
+    const { core } = await this.ensureConnected();
+    const clusterWide = !namespace || namespace === "*" || namespace === "all";
     const res = await timed(
       this.log,
-      { client: "k8s", op: "listEvents", namespace },
+      { client: "k8s", op: "listEvents", namespace: clusterWide ? "all" : namespace },
       "k8s listEvents",
-      () => core.listNamespacedEvent({ namespace })
+      () =>
+        clusterWide
+          ? core.listEventForAllNamespaces()
+          : core.listNamespacedEvent({ namespace })
     );
     return (res.items ?? [])
       .map(toEventDto)
