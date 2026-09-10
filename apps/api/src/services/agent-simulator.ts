@@ -2,6 +2,7 @@ import type { FastifyBaseLogger } from "fastify";
 import type { Config } from "../config/env.js";
 import { createFnLog } from "../logging.js";
 import type { EventBus } from "../events/bus.js";
+import { incidentStore } from "../repositories/incidents.js";
 
 export function startAgentSimulator(
   bus: EventBus,
@@ -10,7 +11,7 @@ export function startAgentSimulator(
 ): () => void {
   const flog = createFnLog(log);
   const incidentId = "INC-1042";
-  const steps = [
+  const pendingSteps = [
     {
       step: "monitor_error_rate",
       message: "Re-checking Prometheus 5xx rate for checkout-api",
@@ -27,9 +28,40 @@ export function startAgentSimulator(
       status: "running" as const,
     },
   ];
+  const approvedSteps = [
+    {
+      step: "monitor_error_rate",
+      message: "Re-checking Prometheus 5xx rate for checkout-api",
+      status: "completed" as const,
+    },
+    {
+      step: "verify_workload",
+      message: "Verifier watching allowlisted mutation outcome",
+      status: "running" as const,
+    },
+  ];
 
   let idx = 0;
   const timer = setInterval(() => {
+    const incident = incidentStore.get(incidentId);
+    const authorized =
+      incident?.policy.status === "approved" ||
+      incident?.policy.status === "auto-approved";
+    const steps = authorized ? approvedSteps : pendingSteps;
+    if (authorized && incident?.execution.status === "completed") {
+      bus.publish({
+        type: "agent.investigation.step",
+        incidentId,
+        clusterId: config.CLUSTER_ID,
+        namespace: config.NAMESPACE,
+        timestamp: new Date().toISOString(),
+        message: incident.execution.detail || "Remediation completed",
+        status: "completed",
+        step: "verify_workload",
+        data: { demo: true },
+      });
+      return;
+    }
     const step = steps[idx % steps.length];
     idx += 1;
     bus.publish({

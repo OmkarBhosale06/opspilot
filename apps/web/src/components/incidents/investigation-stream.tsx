@@ -57,9 +57,15 @@ export function InvestigationStream({
   connected?: boolean;
 }) {
   const bottomRef = useRef<HTMLDivElement>(null);
-  const live = liveEvents.find(
-    (e) => e.type.startsWith("agent.") && e.status === "running"
+  const latestAgent = liveEvents.find((e) => e.type.startsWith("agent."));
+  const awaitingInSteps = steps.some(
+    (step) => step.step === "await_approval" && step.status === "running"
   );
+  const live =
+    latestAgent?.status === "running" &&
+    (latestAgent.step !== "await_approval" || awaitingInSteps)
+      ? latestAgent
+      : undefined;
 
   const ordered = useMemo(() => steps, [steps]);
 

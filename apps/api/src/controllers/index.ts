@@ -241,6 +241,9 @@ export function registerControllers(app: FastifyInstance, ctx: AppContext) {
           incident: result.incident,
         });
       }
+      const authorized =
+        result.incident.policy.status === "approved" ||
+        result.incident.policy.status === "auto-approved";
       ctx.bus.publish({
         type: "policy.updated",
         incidentId: result.incident.id,
@@ -250,10 +253,19 @@ export function registerControllers(app: FastifyInstance, ctx: AppContext) {
         message: `${actor} approved ${result.incident.id}`,
         status: result.incident.policy.status,
       });
-      const authorized =
-        result.incident.policy.status === "approved" ||
-        result.incident.policy.status === "auto-approved";
-      const execStatus = result.incident.execution.status;
+      if (authorized) {
+        ctx.bus.publish({
+          type: "agent.investigation.step",
+          incidentId: result.incident.id,
+          clusterId: ctx.config.CLUSTER_ID,
+          namespace: result.incident.namespace,
+          timestamp: result.incident.updatedAt,
+          message: `${actor} approved; await_approval complete`,
+          status: "completed",
+          step: "await_approval",
+        });
+      }
+      const execStatus = result.incident.execution?.status ?? "blocked";
       if (
         authorized &&
         (execStatus === "queued" || execStatus === "blocked")

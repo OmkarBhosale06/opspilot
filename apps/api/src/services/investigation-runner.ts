@@ -2,7 +2,7 @@ import type { FastifyBaseLogger } from "fastify";
 import type { Config } from "../config/env.js";
 import type { EventBus } from "../events/bus.js";
 import { createFnLog } from "../logging.js";
-import { incidentStore, type Incident } from "../repositories/incidents.js";
+import { incidentStore, closeApprovalGate, type Incident } from "../repositories/incidents.js";
 import type { KubernetesMonitorService } from "./kubernetes-monitor.js";
 import type { AgentClient } from "./agent-client.js";
 import type { PodDto } from "../types/dto.js";
@@ -99,20 +99,46 @@ async function runForIncident(
   }
 
   const remote = await agent.investigate(incident, pods);
-  const next = remote
-    ? {
-        ...incident,
-        updatedAt: new Date().toISOString(),
-        investigation: remote.investigation ?? incident.investigation,
-        rootCause: remote.rootCause ?? incident.rootCause,
-        remediation: remote.remediation ?? incident.remediation,
-        evidence: remote.evidence
-          ? [...incident.evidence, ...remote.evidence]
-          : incident.evidence,
-      }
-    : localInvestigation(incident, pods);
+  const latest = incidentStore.get(incidentId);
+  if (!latest) return;
 
-  incidentStore.upsert(next);
+  const draft = remote
+    ? {
+        investigation: remote.investigation ?? latest.investigation,
+        rootCause: remote.rootCause ?? latest.rootCause,
+        remediation: remote.remediation ?? latest.remediation,
+        evidence: remote.evidence
+          ? [...latest.evidence, ...remote.evidence]
+          : latest.evidence,
+      }
+    : localInvestigation(latest, pods);
+
+  const next = incidentStore.patch(incidentId, (current) => {
+    const gateClosed =
+      current.policy.status === "approved" ||
+      current.policy.status === "auto-approved" ||
+      current.policy.status === "rejected" ||
+      current.execution?.status !== undefined &&
+      current.execution.status !== "blocked";
+    const investigation = gateClosed
+      ? closeApprovalGate(
+          draft.investigation,
+          current.updatedAt,
+          current.policy.status === "rejected"
+            ? "Remediation rejected; executor will not run"
+            : "Approval already recorded; executor owns mutation"
+        )
+      : draft.investigation;
+    return {
+      ...current,
+      updatedAt: new Date().toISOString(),
+      investigation,
+      rootCause: draft.rootCause,
+      remediation: current.policy.status === "pending" ? draft.remediation : current.remediation,
+      evidence: draft.evidence,
+    };
+  });
+  if (!next) return;
   flog.info("runForIncident", remote ? "Applied agent investigation" : "Applied local investigation", {
     incidentId,
   });
@@ -121,10 +147,10 @@ async function runForIncident(
     type: "agent.investigation.step",
     incidentId,
     clusterId: config.CLUSTER_ID,
-    namespace: incident.namespace,
+    namespace: next.namespace,
     timestamp: next.updatedAt,
     message: next.investigation.at(-1)?.summary ?? "Investigation updated",
-    status: "completed",
+    status: next.investigation.at(-1)?.status === "running" ? "running" : "completed",
     step: next.investigation.at(-1)?.step ?? "form_hypothesis",
   });
 }

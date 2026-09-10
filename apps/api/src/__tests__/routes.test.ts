@@ -258,6 +258,12 @@ describe("API routes", () => {
     expect(approved.json().incident.execution.status).toBe("completed");
     expect(approved.json().incident.verification.status).toBe("passed");
     expect(approved.json().incident.status).toBe("resolved");
+    const gate = approved
+      .json()
+      .incident.investigation.find(
+        (step: { step: string }) => step.step === "await_approval"
+      );
+    expect(gate?.status).toBe("completed");
     await app.close();
   });
 

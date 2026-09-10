@@ -6,6 +6,13 @@ import { ShieldAlert } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { StatusDot } from "@/components/ui/status-dot";
 import type {
   ExecutionState,
@@ -166,9 +173,46 @@ export function RemediationCard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" size="sm" disabled>
-            Review changes
-          </Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button type="button" variant="outline" size="sm">
+                Review solution
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Proposed solution</DialogTitle>
+              </DialogHeader>
+              <dl className="space-y-2 text-xs">
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">Action</dt>
+                  <dd className="mono capitalize">
+                    {remediation.action} {remediation.target}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">From → to</dt>
+                  <dd className="mono">
+                    {remediation.fromVersion} → {remediation.toVersion}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-muted-foreground">Policy</dt>
+                  <dd className="max-w-[65%] text-right">
+                    {policy.policyId}: {policy.reason}
+                  </dd>
+                </div>
+                <p className="pt-1 leading-relaxed text-muted-foreground">
+                  {remediation.rationale}
+                </p>
+                <p className="leading-relaxed text-muted-foreground">
+                  Approve authorizes this allowlisted mutation. The executor
+                  then restarts or rolls back the deployment; it does not run
+                  free-form kubectl.
+                </p>
+              </dl>
+            </DialogContent>
+          </Dialog>
           <Button
             type="button"
             variant="warning"

@@ -25,8 +25,16 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
-        if path == "/health":
-            self._json(200, {"ok": True, "runtime": "phase5-stub"})
+        if path in {"/", "/health"}:
+            self._json(
+                200,
+                {
+                    "ok": True,
+                    "runtime": "phase5-stub",
+                    "investigate": "POST /investigate",
+                    "health": "GET /health",
+                },
+            )
             return
         self._json(404, {"error": "not_found"})
 
@@ -45,12 +53,18 @@ class Handler(BaseHTTPRequestHandler):
         self._json(404, {"error": "not_found"})
 
     def log_message(self, fmt: str, *args) -> None:
-        sys.stderr.write("[agent] " + (fmt % args) + "\n")
+        line = fmt % args
+        # Chrome/Cursor probes :8090 as a DevTools endpoint; ignore those.
+        if "/json/version" in line:
+            return
+        sys.stderr.write("[agent] " + line + "\n")
 
 
 def main() -> None:
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     print(f"OpsPilot agent stub listening on http://{HOST}:{PORT}")
+    print("  GET  /health")
+    print("  POST /investigate   (called by the API when an incident is created)")
     server.serve_forever()
 
 

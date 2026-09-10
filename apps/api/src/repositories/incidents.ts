@@ -18,6 +18,38 @@ export type InvestigationStep = {
   details?: unknown;
 };
 
+export function closeApprovalGate(
+  steps: InvestigationStep[],
+  at: string,
+  summary: string
+): InvestigationStep[] {
+  let matched = false;
+  const next = steps.map((step) => {
+    if (step.step !== "await_approval") return step;
+    matched = true;
+    if (step.status === "completed") return step;
+    return {
+      ...step,
+      status: "completed" as const,
+      completedAt: at,
+      summary,
+    };
+  });
+  if (matched) return next;
+  return [
+    ...next,
+    {
+      id: `inv-approve-${at}`,
+      step: "await_approval",
+      status: "completed",
+      tool: "policy",
+      startedAt: at,
+      completedAt: at,
+      summary,
+    },
+  ];
+}
+
 export type EvidenceItem = {
   id: string;
   kind: "metric" | "log" | "k8s" | "diff" | "trace";
@@ -657,6 +689,13 @@ class IncidentStore {
             detail: "Policy authorized; executor queued allowlisted mutation",
           }
         : current.execution,
+      investigation: approved
+        ? closeApprovalGate(
+            current.investigation,
+            at,
+            `${actor} approved; executor queued allowlisted ${current.remediation.action}`
+          )
+        : current.investigation,
       policy: {
         ...current.policy,
         approvals,
@@ -695,6 +734,11 @@ class IncidentStore {
         ...current.policy,
         status: "rejected",
       },
+      investigation: closeApprovalGate(
+        current.investigation,
+        at,
+        `${actor} rejected remediation; executor will not run`
+      ),
       timeline: [
         ...current.timeline,
         {

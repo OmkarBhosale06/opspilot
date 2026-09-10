@@ -4,6 +4,7 @@ import type { EventBus } from "../events/bus.js";
 import { createFnLog } from "../logging.js";
 import {
   incidentStore,
+  closeApprovalGate,
   type ExecutionState,
   type Incident,
   type VerificationState,
@@ -129,6 +130,11 @@ export class RemediationPipeline {
       },
       {
         status: "mitigating",
+        investigation: closeApprovalGate(
+          incident.investigation,
+          startedAt,
+          `Policy authorized; executing ${decision.action}`
+        ),
         timeline: [
           ...incident.timeline,
           {

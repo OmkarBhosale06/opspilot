@@ -92,6 +92,8 @@ export async function approveIncident(
     executor: string;
     hint: string;
     incident: Incident;
-  }>(`/api/incidents/${id}/approve`, body);
+  }>(`/api/incidents/${id}/approve`, body, {
+    signal: AbortSignal.timeout(20_000),
+  });
   return enrichIncident(res.incident);
 }
