@@ -11,6 +11,10 @@ const envSchema = z.object({
   REDIS_URL: z.string().optional(),
   PROMETHEUS_URL: z.string().default("http://localhost:9090"),
   LOKI_URL: z.string().default("http://localhost:3100"),
+  AGENT_URL: z.string().default("http://localhost:8090"),
+  ENABLE_AGENT_SIMULATOR: z
+    .enum(["0", "1", "true", "false"])
+    .optional(),
   LOG_LEVEL: z
     .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
     .optional(),
@@ -40,6 +44,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     REDIS_URL: env.REDIS_URL,
     PROMETHEUS_URL: env.PROMETHEUS_URL,
     LOKI_URL: env.LOKI_URL,
+    AGENT_URL: env.AGENT_URL,
+    ENABLE_AGENT_SIMULATOR: env.ENABLE_AGENT_SIMULATOR,
     LOG_LEVEL: env.LOG_LEVEL,
   });
   return {

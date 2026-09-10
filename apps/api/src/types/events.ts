@@ -50,7 +50,7 @@ export type InvestigationStepEvent = EventBase & {
 };
 
 export type RemediationUpdated = EventBase & {
-  type: "remediation.updated";
+  type: "remediation.updated" | "policy.updated";
   incidentId: string;
   status: string;
 };

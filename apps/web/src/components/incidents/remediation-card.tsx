@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useState } from "react";
 import { ShieldAlert } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,20 +10,42 @@ import { StatusDot } from "@/components/ui/status-dot";
 import type { PolicyState, RemediationPlan, VerificationState } from "@/types";
 
 export function RemediationCard({
+  incidentId,
   remediation,
   policy,
   verification,
+  onApprove,
 }: {
+  incidentId: string;
   remediation: RemediationPlan;
   policy: PolicyState;
   verification: VerificationState;
+  onApprove?: () => Promise<void> | void;
 }) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const approved =
+    policy.status === "approved" || policy.status === "auto-approved";
+  const rejected = policy.status === "rejected";
   const riskVariant =
     remediation.risk === "high"
       ? "critical"
       : remediation.risk === "medium"
         ? "warning"
         : "healthy";
+
+  async function handleApprove() {
+    if (!onApprove || approved || rejected) return;
+    setPending(true);
+    setError(null);
+    try {
+      await onApprove();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Approve failed");
+    } finally {
+      setPending(false);
+    }
+  }
 
   return (
     <Card className="border-status-warning/45 bg-[linear-gradient(180deg,color-mix(in_oklab,var(--status-warning)_10%,transparent),transparent_32%)]">
@@ -31,7 +54,9 @@ export function RemediationCard({
           <ShieldAlert className="h-3.5 w-3.5 text-status-warning" aria-hidden />
           <CardTitle className="text-status-warning">Action required</CardTitle>
         </div>
-        <Badge variant="warning">Approval gate</Badge>
+        <Badge variant={approved ? "healthy" : rejected ? "critical" : "warning"}>
+          {approved ? "Approved" : rejected ? "Rejected" : "Approval gate"}
+        </Badge>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
@@ -71,7 +96,7 @@ export function RemediationCard({
             label="Policy"
             value={`${policy.policyId}: ${policy.reason}`}
             badge={
-              <Badge variant="warning">
+              <Badge variant={approved ? "healthy" : "warning"}>
                 {policy.approvals.length}/{policy.requiredApprovals} approvals
               </Badge>
             }
@@ -111,15 +136,30 @@ export function RemediationCard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" size="sm">
+          <Button type="button" variant="outline" size="sm" disabled>
             Review changes
           </Button>
-          <Button type="button" variant="warning" size="sm">
-            Approve rollback
+          <Button
+            type="button"
+            variant="warning"
+            size="sm"
+            disabled={pending || approved || rejected}
+            onClick={() => void handleApprove()}
+          >
+            {pending
+              ? "Approving…"
+              : approved
+                ? "Approved"
+                : "Approve rollback"}
           </Button>
           <p className="text-[10px] text-muted-foreground">
-            UI-only this phase. Executor will not mutate until policy authorizes.
+            {approved
+              ? "Policy authorized. Executor will not kubectl until phase 6."
+              : `Approval is live for ${incidentId}. Cluster mutation is still gated.`}
           </p>
+          {error ? (
+            <p className="w-full text-[11px] text-status-critical">{error}</p>
+          ) : null}
         </div>
       </CardContent>
     </Card>

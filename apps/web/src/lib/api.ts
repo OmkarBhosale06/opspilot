@@ -41,12 +41,37 @@ export async function apiGet<T>(
   path: string,
   init?: RequestInit
 ): Promise<T> {
+  return apiJson<T>("GET", path, init);
+}
+
+export async function apiPost<T>(
+  path: string,
+  body?: unknown,
+  init?: RequestInit
+): Promise<T> {
+  return apiJson<T>("POST", path, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+}
+
+async function apiJson<T>(
+  method: string,
+  path: string,
+  init?: RequestInit
+): Promise<T> {
   const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
   const started =
     typeof performance !== "undefined" ? performance.now() : Date.now();
-  clientLog("apiGet", `→ GET ${url}`);
+  const fn = method === "GET" ? "apiGet" : "apiPost";
+  clientLog(fn, `→ ${method} ${url}`);
   const res = await fetch(url, {
     ...init,
+    method,
     headers: {
       Accept: "application/json",
       ...(init?.headers ?? {}),
@@ -73,7 +98,7 @@ export async function apiGet<T>(
       typeof (body as { message: unknown }).message === "string"
         ? (body as { message: string }).message
         : `Request failed (${res.status})`;
-    clientLog("apiGet", `← GET ${url} ${res.status} ${ms}ms`, {
+    clientLog(fn, `← ${method} ${url} ${res.status} ${ms}ms`, {
       requestId,
       message,
       body,
@@ -81,7 +106,7 @@ export async function apiGet<T>(
     throw new ApiError(message, res.status, body);
   }
 
-  clientLog("apiGet", `← GET ${url} ${res.status} ${ms}ms`, { requestId });
+  clientLog(fn, `← ${method} ${url} ${res.status} ${ms}ms`, { requestId });
   return res.json() as Promise<T>;
 }
 

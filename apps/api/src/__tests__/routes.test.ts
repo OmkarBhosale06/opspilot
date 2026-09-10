@@ -204,18 +204,33 @@ describe("API routes", () => {
     await app.close();
   });
 
-  it("GET /api/incidents/:id/telemetry returns seed incident series state", async () => {
+  it("POST /api/incidents creates an incident and approve records policy", async () => {
     const app = await buildTestApp(fakeK8s());
-    const res = await app.inject({
-      method: "GET",
-      url: "/api/incidents/INC-1042/telemetry",
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/incidents",
+      payload: {
+        title: "demo-api crash loop (test)",
+        service: "demo-api",
+        namespace: "opspilot",
+        scenario: "crashloop",
+        severity: "SEV2",
+      },
     });
-    expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({
-      incidentId: "INC-1042",
-      service: "checkout-api",
-      live: false,
+    expect(created.statusCode).toBe(201);
+    const incident = created.json();
+    expect(incident.id).toMatch(/^INC-\d+$/);
+    expect(incident.policy.status).toBe("pending");
+
+    const approved = await app.inject({
+      method: "POST",
+      url: `/api/incidents/${incident.id}/approve`,
+      payload: { actor: "tester@local" },
     });
+    expect(approved.statusCode).toBe(200);
+    expect(approved.json().incident.policy.status).toBe("approved");
+    expect(approved.json().incident.policy.approvals[0].actor).toBe("tester@local");
+    expect(approved.json().executor).toBe("not_started");
     await app.close();
   });
 });

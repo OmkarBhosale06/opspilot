@@ -19,7 +19,7 @@ import {
 } from "@/components/charts/error-rate-sparkline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ErrorState, LoadingBlock } from "@/components/ui/states";
-import { getIncident } from "@/services/incidents";
+import { approveIncident, getIncident } from "@/services/incidents";
 import { getIncidentTelemetry } from "@/services/observability";
 import { useSse } from "@/hooks/use-sse";
 import { ApiError } from "@/lib/api";
@@ -51,6 +51,8 @@ export default function IncidentCommandCenterPage() {
       if (
         event.type.startsWith("agent.") ||
         event.type.startsWith("incident.") ||
+        event.type.startsWith("policy.") ||
+        event.type.startsWith("remediation.") ||
         event.step
       ) {
         void queryClient.invalidateQueries({ queryKey: ["incident", id] });
@@ -119,9 +121,15 @@ export default function IncidentCommandCenterPage() {
           <CausalChain incident={data} />
 
           <RemediationCard
+            incidentId={data.id}
             remediation={data.remediation}
             policy={data.policy}
             verification={data.verification}
+            onApprove={async () => {
+              await approveIncident(data.id, { actor: "oncall@local" });
+              await queryClient.invalidateQueries({ queryKey: ["incident", id] });
+              await queryClient.invalidateQueries({ queryKey: ["incidents"] });
+            }}
           />
 
           <RootCauseCard rootCause={data.rootCause} />

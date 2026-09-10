@@ -6,6 +6,7 @@ import type { EventBus } from "../events/bus.js";
 import { sendDomainError, namespaceFromQuery } from "../middleware/errors.js";
 import { getHealthReport, getOverview } from "../services/health-service.js";
 import { incidentStore } from "../repositories/incidents.js";
+import { z } from "zod";
 import { openSseStream } from "../events/sse.js";
 import type { PrometheusClient } from "../clients/prometheus/client.js";
 import type { LokiClient } from "../clients/loki/client.js";
@@ -169,12 +170,120 @@ export function registerControllers(app: FastifyInstance, ctx: AppContext) {
     }
   );
 
+  const createIncidentBody = z.object({
+    title: z.string().min(1),
+    summary: z.string().optional(),
+    severity: z.enum(["SEV1", "SEV2", "SEV3", "SEV4"]).optional(),
+    service: z.string().min(1),
+    namespace: z.string().optional(),
+    scenario: z.string().optional(),
+    errorRate: z.number().optional(),
+    affectedReplicas: z.number().optional(),
+  });
+
+  const approvalBody = z.object({
+    actor: z.string().min(1).optional(),
+    note: z.string().optional(),
+  });
+
   app.get("/api/incidents", async () => {
     return {
       items: incidentStore.listSummaries(),
       count: incidentStore.list().length,
     };
   });
+
+  app.post("/api/incidents", async (request, reply) => {
+    const parsed = createIncidentBody.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      return reply.status(400).send({
+        error: "bad_request",
+        message: parsed.error.issues[0]?.message ?? "Invalid incident payload",
+      });
+    }
+    const incident = incidentStore.create({
+      ...parsed.data,
+      clusterId: ctx.config.CLUSTER_ID,
+      source: "api",
+    });
+    ctx.bus.publish({
+      type: "incident.created",
+      incidentId: incident.id,
+      clusterId: ctx.config.CLUSTER_ID,
+      namespace: incident.namespace,
+      timestamp: incident.startedAt,
+      message: incident.title,
+    });
+    return reply.status(201).send(incident);
+  });
+
+  app.post<{ Params: { id: string } }>(
+    "/api/incidents/:id/approve",
+    async (request, reply) => {
+      const parsed = approvalBody.safeParse(request.body ?? {});
+      const actor = parsed.success
+        ? parsed.data.actor?.trim() || "oncall@local"
+        : "oncall@local";
+      const note = parsed.success ? parsed.data.note : undefined;
+      const result = incidentStore.approve(request.params.id, actor, note);
+      if (!result) {
+        return reply.status(404).send({
+          error: "not_found",
+          message: `Incident ${request.params.id} not found`,
+        });
+      }
+      if (result.incident.policy.status === "rejected") {
+        return reply.status(409).send({
+          error: "conflict",
+          message: "Incident remediation was already rejected",
+          incident: result.incident,
+        });
+      }
+      ctx.bus.publish({
+        type: "policy.updated",
+        incidentId: result.incident.id,
+        clusterId: ctx.config.CLUSTER_ID,
+        namespace: result.incident.namespace,
+        timestamp: result.incident.updatedAt,
+        message: `${actor} approved ${result.incident.id}`,
+        status: result.incident.policy.status,
+      });
+      return {
+        already: result.already,
+        executor: "not_started",
+        hint: "Policy recorded. Executor will not mutate Kubernetes until phase 6.",
+        incident: result.incident,
+      };
+    }
+  );
+
+  app.post<{ Params: { id: string } }>(
+    "/api/incidents/:id/reject",
+    async (request, reply) => {
+      const parsed = approvalBody.safeParse(request.body ?? {});
+      const actor = parsed.success
+        ? parsed.data.actor?.trim() || "oncall@local"
+        : "oncall@local";
+      const note = parsed.success ? parsed.data.note : undefined;
+      const incident = incidentStore.reject(request.params.id, actor, note);
+      if (!incident) {
+        return reply.status(404).send({
+          error: "not_found",
+          message: `Incident ${request.params.id} not found`,
+        });
+      }
+      ctx.bus.publish({
+        type: "policy.updated",
+        incidentId: incident.id,
+        clusterId: ctx.config.CLUSTER_ID,
+        namespace: incident.namespace,
+        timestamp: incident.updatedAt,
+        message: `${actor} rejected ${incident.id}`,
+        status: incident.policy.status,
+      });
+      return { incident };
+    }
+  );
 
   app.get<{ Params: { id: string } }>(
     "/api/incidents/:id",

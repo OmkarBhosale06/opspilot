@@ -37,7 +37,7 @@ export type RootCauseHypothesis = {
 };
 
 export type RemediationPlan = {
-  action: "rollback";
+  action: "rollback" | "restart";
   target: string;
   fromVersion: string;
   toVersion: string;
@@ -417,6 +417,141 @@ function seedInc1042(): Incident {
   };
 }
 
+export type CreateIncidentInput = {
+  title: string;
+  summary?: string;
+  severity?: Incident["severity"];
+  service: string;
+  namespace?: string;
+  clusterId?: string;
+  scenario?: string;
+  errorRate?: number;
+  affectedReplicas?: number;
+  source?: string;
+};
+
+function nextIncidentId(existing: Iterable<string>): string {
+  let max = 1042;
+  for (const id of existing) {
+    const match = /^INC-(\d+)$/.exec(id);
+    if (match) max = Math.max(max, Number(match[1]));
+  }
+  return `INC-${max + 1}`;
+}
+
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+export function buildIncident(input: CreateIncidentInput, id: string): Incident {
+  const startedAt = nowIso();
+  const scenario = input.scenario?.trim() || "manual";
+  const service = input.service.trim();
+  const namespace = input.namespace?.trim() || "opspilot";
+  const severity = input.severity ?? "SEV2";
+  const title = input.title.trim();
+  const summary =
+    input.summary?.trim() ||
+    `${service} reported ${scenario} in ${namespace}.`;
+
+  return {
+    id,
+    title,
+    summary,
+    severity,
+    status: "investigating",
+    service,
+    namespace,
+    clusterId: input.clusterId?.trim() || "kind-opspilot",
+    startedAt,
+    updatedAt: startedAt,
+    resolvedAt: null,
+    affectedReplicas: input.affectedReplicas ?? 1,
+    errorRate: input.errorRate ?? 0,
+    timeline: [
+      {
+        id: `${id}-tl-1`,
+        timestamp: startedAt,
+        type: "incident.created",
+        message: `Incident ${id} opened (${scenario})`,
+        source: input.source ?? "simulation",
+        severity: severity === "SEV1" || severity === "SEV2" ? "critical" : "warning",
+      },
+    ],
+    investigation: [
+      {
+        id: `${id}-inv-1`,
+        step: "ingest_signal",
+        status: "running",
+        tool: "k8s",
+        startedAt,
+        completedAt: null,
+        summary: `Queued investigation for ${service} (${scenario})`,
+      },
+    ],
+    evidence: [
+      {
+        id: `${id}-ev-1`,
+        kind: "k8s",
+        title: `${service} cluster signal`,
+        summary: `Opened from ${scenario} against ${namespace}/${service}`,
+        source: input.source ?? "simulation",
+        timestamp: startedAt,
+        data: { scenario, service, namespace },
+      },
+    ],
+    rootCause: {
+      summary: `Investigating ${scenario} on ${service}`,
+      confidence: 0.35,
+      service,
+      change: scenario,
+      contributingFactors: [scenario],
+    },
+    remediation: {
+      action: scenario === "crashloop" || scenario === "imagepull" ? "restart" : "rollback",
+      target: `deployment/${service}`,
+      fromVersion: "current",
+      toVersion: "last-healthy",
+      rationale:
+        "Restore known-good replica set after confirmation. Mutation stays gated on approval.",
+      risk: severity === "SEV1" ? "medium" : "low",
+      estimatedImpact: "Brief pod recycle; no cluster-wide change until approved",
+    },
+    policy: {
+      status: "pending",
+      requiredApprovals: 1,
+      approvals: [],
+      policyId: "prod-mutation-gate",
+      reason: "Production mutation requires on-call approval before the executor runs",
+    },
+    verification: {
+      status: "not_started",
+      checks: [
+        {
+          name: "Workload ready",
+          status: "pending",
+          detail: `Will confirm ${service} replicas Ready after remediation`,
+        },
+        {
+          name: "No crash loop",
+          status: "pending",
+          detail: "Will confirm containers are not CrashLoopBackOff / ImagePullBackOff",
+        },
+      ],
+      completedAt: null,
+    },
+    relatedDeployments: [
+      {
+        name: service,
+        version: "current",
+        status: "degraded",
+        at: startedAt,
+      },
+    ],
+    similarIncidents: [],
+  };
+}
+
 class IncidentStore {
   private incidents = new Map<string, Incident>();
 
@@ -433,6 +568,116 @@ class IncidentStore {
 
   get(id: string): Incident | undefined {
     return this.incidents.get(id);
+  }
+
+  nextId(): string {
+    return nextIncidentId(this.incidents.keys());
+  }
+
+  create(input: CreateIncidentInput): Incident {
+    const incident = buildIncident(input, this.nextId());
+    this.incidents.set(incident.id, incident);
+    return incident;
+  }
+
+  upsert(incident: Incident): Incident {
+    this.incidents.set(incident.id, incident);
+    return incident;
+  }
+
+  findOpenByService(namespace: string, service: string): Incident | undefined {
+    return this.list().find(
+      (incident) =>
+        incident.namespace === namespace &&
+        incident.service === service &&
+        incident.status !== "resolved" &&
+        incident.status !== "closed"
+    );
+  }
+
+  patch(id: string, fn: (incident: Incident) => Incident): Incident | undefined {
+    const current = this.incidents.get(id);
+    if (!current) return undefined;
+    const next = fn(current);
+    this.incidents.set(id, next);
+    return next;
+  }
+
+  approve(
+    id: string,
+    actor: string,
+    note?: string
+  ): { incident: Incident; already: boolean } | undefined {
+    const current = this.incidents.get(id);
+    if (!current) return undefined;
+    if (current.policy.status === "approved" || current.policy.status === "auto-approved") {
+      return { incident: current, already: true };
+    }
+    if (current.policy.status === "rejected") {
+      return { incident: current, already: true };
+    }
+    const at = nowIso();
+    const approvals = [
+      ...current.policy.approvals,
+      { actor, at, note },
+    ];
+    const approved = approvals.length >= current.policy.requiredApprovals;
+    const incident: Incident = {
+      ...current,
+      updatedAt: at,
+      status: approved ? "mitigating" : current.status,
+      policy: {
+        ...current.policy,
+        approvals,
+        status: approved ? "approved" : "pending",
+      },
+      timeline: [
+        ...current.timeline,
+        {
+          id: `${id}-approve-${approvals.length}`,
+          timestamp: at,
+          type: "policy.approved",
+          message: approved
+            ? `${actor} approved remediation (${current.policy.policyId})`
+            : `${actor} recorded approval ${approvals.length}/${current.policy.requiredApprovals}`,
+          source: "policy",
+          severity: "info",
+        },
+      ],
+    };
+    this.incidents.set(id, incident);
+    return { incident, already: false };
+  }
+
+  reject(
+    id: string,
+    actor: string,
+    note?: string
+  ): Incident | undefined {
+    const current = this.incidents.get(id);
+    if (!current) return undefined;
+    const at = nowIso();
+    const incident: Incident = {
+      ...current,
+      updatedAt: at,
+      policy: {
+        ...current.policy,
+        status: "rejected",
+      },
+      timeline: [
+        ...current.timeline,
+        {
+          id: `${id}-reject`,
+          timestamp: at,
+          type: "policy.rejected",
+          message: `${actor} rejected remediation${note ? `: ${note}` : ""}`,
+          source: "policy",
+          severity: "warning",
+        },
+      ],
+    };
+    this.incidents.set(id, incident);
+    return incident;
   }
 
   /** Lean list DTO for index views */

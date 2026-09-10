@@ -37,8 +37,12 @@ Node.js owns Kubernetes watches and fans out SSE:
    - Local stack: `make obs-up` (Prometheus `:9090`, Loki `:3100`, demo telemetry)
    - API: `/api/observability/*`, `/api/incidents/:id/telemetry`
    - UI: `/observability` + live error-rate/evidence on INC-1042 when backends are up
-5. LangGraph agent — replace `agent-simulator.ts`; Python runtime under `agent/`
-6. Policy / Executor / Verifier — approve → execute → verify (no free-form kubectl)
+5. LangGraph agent — **started**
+   - Stub runtime: `make agent-dev` (`http://localhost:8090`)
+   - API calls `AGENT_URL` on `incident.created`; falls back to local k8s investigation
+   - K8s detector opens incidents from CrashLoop / ImagePull
+   - Simulation: `make sim` / `make sim-reset` (`scripts/test_simulation/config.env`)
+6. Policy / Executor / Verifier — approve records policy (**wired**); executor does not kubectl yet
 7. Memory / RAG — Postgres + Redis (`make data-up`); persist incidents and similar recall
 
 ## Local dependencies by phase

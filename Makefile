@@ -1,4 +1,4 @@
-.PHONY: install dev dev-api dev-web build kind-up kind-apply obs-up obs-down obs-logs data-up data-down
+.PHONY: install dev dev-api dev-web build kind-up kind-apply obs-up obs-down obs-logs data-up data-down sim sim-reset agent-dev
 
 install:
 	npm install
@@ -39,3 +39,16 @@ data-up:
 
 data-down:
 	docker compose -f infrastructure/data/docker-compose.yml down
+
+# Recreate a demo incident (edit scripts/test_simulation/config.env first)
+sim:
+	chmod +x scripts/test_simulation/simulate.sh scripts/test_simulation/reset.sh
+	./scripts/test_simulation/simulate.sh
+
+sim-reset:
+	chmod +x scripts/test_simulation/simulate.sh scripts/test_simulation/reset.sh
+	./scripts/test_simulation/reset.sh
+
+# Phase 5 investigation stub (API calls AGENT_URL, default :8090)
+agent-dev:
+	python3 agent/server.py

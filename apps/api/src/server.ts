@@ -10,6 +10,9 @@ import { KubernetesMonitorService } from "./services/kubernetes-monitor.js";
 import { registerRoutes } from "./routes/index.js";
 import type { AppContext } from "./controllers/index.js";
 import { startAgentSimulator } from "./services/agent-simulator.js";
+import { AgentClient } from "./services/agent-client.js";
+import { startIncidentDetector } from "./services/incident-detector.js";
+import { startInvestigationRunner } from "./services/investigation-runner.js";
 import { ObservabilityService } from "./services/observability-service.js";
 import { createFnLog, createReqId, loggerOptions } from "./logging.js";
 
@@ -86,10 +89,15 @@ export async function buildServer(
     await redis.close();
   });
 
+  const agent = AgentClient.fromConfig(config, app.log);
   if (options.startWatchers !== false) {
     await k8s.start();
+    startIncidentDetector(bus, config, app.log);
+    startInvestigationRunner(bus, config, app.log, k8s, agent);
   }
-  if (options.startSimulator !== false) {
+  const simFlag = String(config.ENABLE_AGENT_SIMULATOR ?? "1");
+  const simEnabled = !["0", "false"].includes(simFlag);
+  if (options.startSimulator !== false && simEnabled) {
     startAgentSimulator(bus, config, app.log);
   }
 

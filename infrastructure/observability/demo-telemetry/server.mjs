@@ -12,6 +12,8 @@ const SERVICE = process.env.SERVICE_NAME || "checkout-api";
 let ok = 10_000;
 let err = 2_200;
 let tick = 0;
+let okDelta = 82;
+let errorDelta = 18;
 
 function metricsBody() {
   return [
@@ -36,6 +38,29 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, service: SERVICE }));
     return;
+  }
+  if (req.url === "/simulate") {
+    if (req.method === "GET") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ okDelta, errorDelta, service: SERVICE }));
+      return;
+    }
+    if (req.method === "POST") {
+      const chunks = [];
+      req.on("data", (c) => chunks.push(c));
+      req.on("end", () => {
+        try {
+          const body = JSON.parse(Buffer.concat(chunks).toString() || "{}");
+          if (Number.isFinite(body.okDelta)) okDelta = Number(body.okDelta);
+          if (Number.isFinite(body.errorDelta)) errorDelta = Number(body.errorDelta);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ ok: true, okDelta, errorDelta }));
+        } catch {
+          res.writeHead(400).end("invalid json");
+        }
+      });
+      return;
+    }
   }
   res.writeHead(404).end("not found");
 });
@@ -73,8 +98,8 @@ async function pushLoki() {
 setInterval(() => {
   tick += 1;
   // Keep ~18% 5xx ratio while counters keep moving for rate().
-  ok += 82;
-  err += 18;
+  ok += okDelta;
+  err += errorDelta;
   void pushLoki();
 }, 2000);
 

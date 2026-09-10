@@ -1,4 +1,4 @@
-import { apiGet } from "@/lib/api";
+import { apiGet, apiPost } from "@/lib/api";
 import type {
   EvidenceItem,
   Incident,
@@ -81,4 +81,17 @@ export async function getIncidentInvestigation(id: string) {
     | { items: InvestigationStep[] }
   >(`/api/incidents/${id}/investigation`);
   return Array.isArray(res) ? res : res.items;
+}
+
+export async function approveIncident(
+  id: string,
+  body: { actor?: string; note?: string } = {}
+) {
+  const res = await apiPost<{
+    already: boolean;
+    executor: string;
+    hint: string;
+    incident: Incident;
+  }>(`/api/incidents/${id}/approve`, body);
+  return enrichIncident(res.incident);
 }
