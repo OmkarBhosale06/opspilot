@@ -1,5 +1,5 @@
 import type { AppLogger } from "../logging.js";
-import { summarizeUrl } from "../logging.js";
+import { createFnLog, summarizeUrl } from "../logging.js";
 
 export async function loggedFetch(
   log: AppLogger | undefined,
@@ -7,25 +7,29 @@ export async function loggedFetch(
   init?: RequestInit,
   client = "http"
 ): Promise<Response> {
+  const flog = createFnLog(log);
   const method = (init?.method ?? "GET").toUpperCase();
   const started = Date.now();
   const target = summarizeUrl(url);
-  log?.debug({ client, method, url: target }, "outbound request");
+  flog.debug("loggedFetch", "outbound request", { client, method, url: target });
   try {
     const res = await fetch(url, init);
     const ms = Date.now() - started;
-    const payload = { client, method, url: target, status: res.status, ms };
+    const fields = { client, method, url: target, status: res.status, ms };
     if (res.ok) {
-      log?.debug(payload, "outbound response");
+      flog.debug("loggedFetch", "outbound response", fields);
     } else {
-      log?.warn(payload, "outbound response");
+      flog.warn("loggedFetch", "outbound response", fields);
     }
     return res;
   } catch (err) {
-    log?.warn(
-      { client, method, url: target, err, ms: Date.now() - started },
-      "outbound failed"
-    );
+    flog.warn("loggedFetch", "outbound failed", {
+      client,
+      method,
+      url: target,
+      err,
+      ms: Date.now() - started,
+    });
     throw err;
   }
 }

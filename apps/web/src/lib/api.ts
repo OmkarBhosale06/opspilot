@@ -6,13 +6,23 @@ const CLIENT_LOG =
   process.env.NEXT_PUBLIC_API_DEBUG === "1" ||
   process.env.NODE_ENV !== "production";
 
-function clientLog(scope: "api" | "sse", message: string, extra?: unknown) {
+/**
+ * Preferred client log shape:
+ *   clientLog("functionName", "whatever message we want to pass", extra?)
+ * Prints: (functionName) message
+ */
+function clientLog(
+  functionName: string,
+  message: string,
+  extra?: unknown
+) {
   if (!CLIENT_LOG) return;
+  const line = `(${functionName}) ${message}`;
   if (extra !== undefined) {
-    console.info(`[opspilot:${scope}] ${message}`, extra);
+    console.info(line, extra);
     return;
   }
-  console.info(`[opspilot:${scope}] ${message}`);
+  console.info(line);
 }
 
 export class ApiError extends Error {
@@ -34,7 +44,7 @@ export async function apiGet<T>(
   const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
   const started =
     typeof performance !== "undefined" ? performance.now() : Date.now();
-  clientLog("api", `→ GET ${url}`);
+  clientLog("apiGet", `→ GET ${url}`);
   const res = await fetch(url, {
     ...init,
     headers: {
@@ -63,7 +73,7 @@ export async function apiGet<T>(
       typeof (body as { message: unknown }).message === "string"
         ? (body as { message: string }).message
         : `Request failed (${res.status})`;
-    clientLog("api", `← GET ${url} ${res.status} ${ms}ms`, {
+    clientLog("apiGet", `← GET ${url} ${res.status} ${ms}ms`, {
       requestId,
       message,
       body,
@@ -71,7 +81,7 @@ export async function apiGet<T>(
     throw new ApiError(message, res.status, body);
   }
 
-  clientLog("api", `← GET ${url} ${res.status} ${ms}ms`, { requestId });
+  clientLog("apiGet", `← GET ${url} ${res.status} ${ms}ms`, { requestId });
   return res.json() as Promise<T>;
 }
 

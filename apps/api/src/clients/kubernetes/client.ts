@@ -120,6 +120,7 @@ export class KubernetesClient {
     try {
       await timed(
         this.log,
+        "KubernetesClient.doProbe",
         { client: "k8s", op: "probe" },
         "k8s probe",
         () => this.apis!.core.listNamespace({ limit: 1 })
@@ -157,6 +158,7 @@ export class KubernetesClient {
     const { core } = await this.ensureConnected();
     const res = await timed(
       this.log,
+      "KubernetesClient.listNamespaces",
       { client: "k8s", op: "listNamespaces" },
       "k8s listNamespaces",
       () => core.listNamespace()
@@ -168,6 +170,7 @@ export class KubernetesClient {
     const { core } = await this.ensureConnected();
     const res = await timed(
       this.log,
+      "KubernetesClient.listPods",
       { client: "k8s", op: "listPods", namespace },
       "k8s listPods",
       () => core.listNamespacedPod({ namespace })
@@ -180,6 +183,7 @@ export class KubernetesClient {
     try {
       const pod = await timed(
         this.log,
+        "KubernetesClient.getPod",
         { client: "k8s", op: "getPod", name, namespace },
         "k8s getPod",
         () => core.readNamespacedPod({ name, namespace })
@@ -200,6 +204,7 @@ export class KubernetesClient {
     try {
       const text = await timed(
         this.log,
+        "KubernetesClient.getPodLogs",
         { client: "k8s", op: "getPodLogs", name, namespace },
         "k8s getPodLogs",
         () =>
@@ -227,6 +232,7 @@ export class KubernetesClient {
     const { apps } = await this.ensureConnected();
     const res = await timed(
       this.log,
+      "KubernetesClient.listDeployments",
       { client: "k8s", op: "listDeployments", namespace },
       "k8s listDeployments",
       () => apps.listNamespacedDeployment({ namespace })
@@ -242,6 +248,7 @@ export class KubernetesClient {
     try {
       const dep = await timed(
         this.log,
+        "KubernetesClient.getDeployment",
         { client: "k8s", op: "getDeployment", name, namespace },
         "k8s getDeployment",
         () => apps.readNamespacedDeployment({ name, namespace })
@@ -260,6 +267,7 @@ export class KubernetesClient {
     const { apps } = await this.ensureConnected();
     const res = await timed(
       this.log,
+      "KubernetesClient.listDeploymentSnapshots",
       { client: "k8s", op: "listReplicaSets", name, namespace },
       "k8s listReplicaSets",
       () => apps.listNamespacedReplicaSet({ namespace })
@@ -278,6 +286,7 @@ export class KubernetesClient {
     const { core } = await this.ensureConnected();
     const res = await timed(
       this.log,
+      "KubernetesClient.listServices",
       { client: "k8s", op: "listServices", namespace },
       "k8s listServices",
       () => core.listNamespacedService({ namespace })
@@ -290,6 +299,7 @@ export class KubernetesClient {
     const clusterWide = !namespace || namespace === "*" || namespace === "all";
     const res = await timed(
       this.log,
+      "KubernetesClient.listEvents",
       { client: "k8s", op: "listEvents", namespace: clusterWide ? "all" : namespace },
       "k8s listEvents",
       () =>

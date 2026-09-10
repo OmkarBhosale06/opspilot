@@ -10,6 +10,7 @@ import {
   watchPhaseToVerb,
 } from "../clients/kubernetes/mappers.js";
 import type { EventBus } from "../events/bus.js";
+import { createFnLog } from "../logging.js";
 import type {
   DeploymentDto,
   K8sEventDto,
@@ -29,13 +30,16 @@ export class KubernetesMonitorService {
   private watches: RequestWatch[] = [];
   private stopped = false;
   private reconnectTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly flog;
 
   constructor(
     private readonly client: KubernetesClient,
     private readonly bus: EventBus,
     private readonly config: Config,
     private readonly log: FastifyBaseLogger
-  ) {}
+  ) {
+    this.flog = createFnLog(log);
+  }
 
   get connected(): boolean {
     return this.client.connected;
@@ -121,9 +125,10 @@ export class KubernetesMonitorService {
     const ok = await this.client.probe();
     if (!ok) {
       this.abortWatches();
-      this.log.warn(
-        { err: this.client.lastError },
-        "Kubernetes unreachable — will retry"
+      this.flog.warn(
+        "KubernetesMonitorService.reconnect",
+        "Kubernetes unreachable — will retry",
+        { err: this.client.lastError }
       );
       return;
     }
@@ -136,9 +141,10 @@ export class KubernetesMonitorService {
     this.watchPath(`/api/v1/namespaces/${ns}/pods`, (phase, obj) => {
       const pod = toPodDto(obj as k8s.V1Pod);
       const verb = watchPhaseToVerb(phase);
-      this.log.debug(
-        { path: "/pods", phase, name: pod.name, namespace: pod.namespace },
-        `k8s watch pod ${verb}`
+      this.flog.debug(
+        "KubernetesMonitorService.beginWatches",
+        `k8s watch pod ${verb}`,
+        { path: "/pods", phase, name: pod.name, namespace: pod.namespace }
       );
       this.bus.publish({
         type: `k8s.pod.${verb}`,
@@ -185,7 +191,11 @@ export class KubernetesMonitorService {
         data: ev,
       });
     });
-    this.log.info({ namespace: ns }, "Watching Kubernetes pods/deployments/services/events");
+    this.flog.info(
+      "KubernetesMonitorService.beginWatches",
+      "Watching Kubernetes pods/deployments/services/events",
+      { namespace: ns }
+    );
   }
 
   stop(): void {
@@ -222,7 +232,11 @@ export class KubernetesMonitorService {
           (err) => {
             if (this.stopped) return;
             if (err) {
-              this.log.warn({ err, path }, "Kubernetes watch ended");
+              this.flog.warn(
+                "KubernetesMonitorService.watchPath",
+                "Kubernetes watch ended",
+                { err, path }
+              );
               this.client.markDisconnected(
                 err instanceof Error ? err.message : "Kubernetes watch ended"
               );
@@ -233,9 +247,17 @@ export class KubernetesMonitorService {
           }
         );
         this.watches.push(req as RequestWatch);
-        this.log.info({ path }, "Kubernetes watch started");
+        this.flog.info(
+          "KubernetesMonitorService.watchPath",
+          "Kubernetes watch started",
+          { path }
+        );
       } catch (err) {
-        this.log.warn({ err, path }, "Failed to start Kubernetes watch");
+        this.flog.warn(
+          "KubernetesMonitorService.watchPath",
+          "Failed to start Kubernetes watch",
+          { err, path }
+        );
       }
     };
     void run();

@@ -1,5 +1,6 @@
 import type { FastifyBaseLogger } from "fastify";
 import type { Config } from "../config/env.js";
+import { createFnLog } from "../logging.js";
 import type { EventBus } from "../events/bus.js";
 
 export function startAgentSimulator(
@@ -7,6 +8,7 @@ export function startAgentSimulator(
   config: Config,
   log: FastifyBaseLogger
 ): () => void {
+  const flog = createFnLog(log);
   const incidentId = "INC-1042";
   const steps = [
     {
@@ -43,9 +45,10 @@ export function startAgentSimulator(
     });
   }, 20_000);
 
-  log.info(
-    { incidentId, intervalMs: 20_000 },
-    "Emitting demo investigation steps for INC-1042"
+  flog.info(
+    "startAgentSimulator",
+    "Emitting demo investigation steps for INC-1042",
+    { incidentId, intervalMs: 20_000 }
   );
   return () => clearInterval(timer);
 }

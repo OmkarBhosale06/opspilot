@@ -1,4 +1,5 @@
 import type { FastifyReply } from "fastify";
+import { createFnLog } from "../logging.js";
 import { isUnavailable, KubernetesUnavailableError, NotFoundError } from "../types/errors.js";
 import type { KubernetesClient } from "../clients/kubernetes/client.js";
 
@@ -27,7 +28,7 @@ export function sendDomainError(
   }
 
   const message = err instanceof Error ? err.message : "Unexpected error";
-  reply.log.error({ err }, message);
+  createFnLog(reply.log).error("sendDomainError", message, { err });
   return reply.status(500).send({
     error: "internal_error",
     message,

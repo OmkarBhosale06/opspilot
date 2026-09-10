@@ -28,12 +28,12 @@ export function useSse(path: string | null, options: Options = {}) {
       if (closed) return;
       setError(null);
       const url = sseUrl(path);
-      clientLog("sse", `connecting ${url}`);
+      clientLog("useSse", `connecting ${url}`);
       es = new EventSource(url);
 
       es.onopen = () => {
         setConnected(true);
-        clientLog("sse", `open ${url}`);
+        clientLog("useSse", `open ${url}`);
       };
 
       const handlePayload = (raw: MessageEvent) => {
@@ -42,10 +42,10 @@ export function useSse(path: string | null, options: Options = {}) {
           const eventName = raw.type || "message";
           if (data.type === "heartbeat" || eventName === "heartbeat") {
             if (process.env.NEXT_PUBLIC_API_DEBUG === "1") {
-              clientLog("sse", `heartbeat ${url}`);
+              clientLog("useSse", `heartbeat ${url}`);
             }
           } else {
-            clientLog("sse", `${eventName} ${data.type}`, {
+            clientLog("useSse", `${eventName} ${data.type}`, {
               incidentId: data.incidentId,
               message: data.message,
             });
@@ -53,7 +53,7 @@ export function useSse(path: string | null, options: Options = {}) {
           setEvents((prev) => [data, ...prev].slice(0, 200));
           onEventRef.current?.(data);
         } catch {
-          clientLog("sse", `ignored malformed frame on ${url}`);
+          clientLog("useSse", `ignored malformed frame on ${url}`);
         }
       };
 
@@ -63,7 +63,7 @@ export function useSse(path: string | null, options: Options = {}) {
       es.onerror = () => {
         setConnected(false);
         setError("SSE disconnected");
-        clientLog("sse", `error ${url} — retrying in 3s`);
+        clientLog("useSse", `error ${url} — retrying in 3s`);
         es?.close();
         retryTimer = setTimeout(connect, 3000);
       };
@@ -75,7 +75,7 @@ export function useSse(path: string | null, options: Options = {}) {
       closed = true;
       if (retryTimer) clearTimeout(retryTimer);
       es?.close();
-      if (path) clientLog("sse", `closed ${sseUrl(path)}`);
+      if (path) clientLog("useSse", `closed ${sseUrl(path)}`);
       setConnected(false);
     };
   }, [path, enabled]);

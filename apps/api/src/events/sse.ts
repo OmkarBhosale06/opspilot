@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Config } from "../config/env.js";
+import { createFnLog } from "../logging.js";
 import type { EventBus } from "./bus.js";
 import type { OpsPilotEvent } from "../types/events.js";
 
@@ -24,6 +25,7 @@ export function openSseStream(
     initial?: OpsPilotEvent;
   } = {}
 ): void {
+  const flog = createFnLog(request.log);
   const reqId = request.id;
   const url = request.url;
   const started = Date.now();
@@ -45,24 +47,24 @@ export function openSseStream(
     eventsSent += 1;
     if (sseEvent === "heartbeat" || payload.type === "heartbeat") {
       heartbeats += 1;
-      request.log.trace(
-        { reqId, url, type: payload.type, eventsSent, heartbeats },
-        `SSE heartbeat ${url}`
-      );
-      return;
-    }
-    request.log.debug(
-      {
+      flog.trace("openSseStream", `SSE heartbeat ${url}`, {
         reqId,
         url,
-        sseEvent,
         type: payload.type,
-        incidentId: payload.incidentId,
-        message: payload.message,
         eventsSent,
-      },
-      `SSE ${sseEvent} ${payload.type}`
-    );
+        heartbeats,
+      });
+      return;
+    }
+    flog.debug("openSseStream", `SSE ${sseEvent} ${payload.type}`, {
+      reqId,
+      url,
+      sseEvent,
+      type: payload.type,
+      incidentId: payload.incidentId,
+      message: payload.message,
+      eventsSent,
+    });
   };
 
   const onBusEvent = (event: OpsPilotEvent) => {
@@ -75,15 +77,12 @@ export function openSseStream(
   }
 
   const unsubscribe = bus.subscribe(onBusEvent);
-  request.log.info(
-    {
-      reqId,
-      url,
-      subscribers: bus.subscriberCount,
-      filter: Boolean(options.filter),
-    },
-    `SSE open ${url} subscribers=${bus.subscriberCount}`
-  );
+  flog.info("openSseStream", `SSE open ${url} subscribers=${bus.subscriberCount}`, {
+    reqId,
+    url,
+    subscribers: bus.subscriberCount,
+    filter: Boolean(options.filter),
+  });
 
   const heartbeat = setInterval(() => {
     send("heartbeat", {
@@ -96,7 +95,9 @@ export function openSseStream(
   const cleanup = () => {
     clearInterval(heartbeat);
     unsubscribe();
-    request.log.info(
+    flog.info(
+      "openSseStream",
+      `SSE close ${url} ${Date.now() - started}ms events=${eventsSent}`,
       {
         reqId,
         url,
@@ -104,8 +105,7 @@ export function openSseStream(
         eventsSent,
         heartbeats,
         subscribers: bus.subscriberCount,
-      },
-      `SSE close ${url} ${Date.now() - started}ms events=${eventsSent}`
+      }
     );
   };
 

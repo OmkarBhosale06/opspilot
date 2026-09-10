@@ -11,7 +11,7 @@ import { registerRoutes } from "./routes/index.js";
 import type { AppContext } from "./controllers/index.js";
 import { startAgentSimulator } from "./services/agent-simulator.js";
 import { ObservabilityService } from "./services/observability-service.js";
-import { createReqId, loggerOptions } from "./logging.js";
+import { createFnLog, createReqId, loggerOptions } from "./logging.js";
 
 export type BuildOptions = {
   config?: Config;
@@ -34,24 +34,25 @@ export async function buildServer(
     origin: config.CORS_ORIGIN.split(",").map((s) => s.trim()),
   });
 
+  const flog = createFnLog(app.log);
   const k8sClient =
     options.k8sClient ?? new KubernetesClient(config.CLUSTER_ID, app.log);
   if (!options.k8sClient) {
     k8sClient.loadFromKubeConfig();
-    app.log.info(
+    flog.info(
+      "buildServer",
+      k8sClient.connected ? "Loaded kubeconfig" : "Kubeconfig not loaded",
       {
         connected: k8sClient.connected,
         error: k8sClient.lastError,
         cluster: k8sClient.describeCluster(config.NAMESPACE),
-      },
-      k8sClient.connected
-        ? "Loaded kubeconfig"
-        : "Kubeconfig not loaded"
+      }
     );
     await k8sClient.probe();
-    app.log.info(
-      { connected: k8sClient.connected, error: k8sClient.lastError },
-      k8sClient.connected ? "Kubernetes reachable" : "Kubernetes unreachable"
+    flog.info(
+      "buildServer",
+      k8sClient.connected ? "Kubernetes reachable" : "Kubernetes unreachable",
+      { connected: k8sClient.connected, error: k8sClient.lastError }
     );
   }
 
@@ -92,28 +93,26 @@ export async function buildServer(
     startAgentSimulator(bus, config, app.log);
   }
 
-  app.log.info(
-    {
-      cluster: config.CLUSTER_ID,
-      namespace: config.NAMESPACE,
-      k8sConnected: k8s.connected,
-    },
-    "OpsPilot API ready"
-  );
+  flog.info("buildServer", "OpsPilot API ready", {
+    cluster: config.CLUSTER_ID,
+    namespace: config.NAMESPACE,
+    k8sConnected: k8s.connected,
+  });
 
   return { app, ctx };
 }
 
 export async function startServer(): Promise<FastifyInstance> {
   const { app, ctx } = await buildServer();
+  const flog = createFnLog(app.log);
 
   const shutdown = async (signal: string) => {
-    app.log.info({ signal }, "Graceful shutdown");
+    flog.info("startServer", "Graceful shutdown", { signal });
     try {
       await app.close();
       process.exit(0);
     } catch (err) {
-      app.log.error({ err }, "Error during shutdown");
+      flog.error("startServer", "Error during shutdown", { err });
       process.exit(1);
     }
   };
