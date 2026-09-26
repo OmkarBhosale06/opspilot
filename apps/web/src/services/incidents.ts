@@ -40,11 +40,17 @@ const DEMO_RELATED = [
 ];
 
 function enrichIncident(incident: Incident): Incident {
+  const seedSimilar =
+    incident.id === "INC-1042" &&
+    (!incident.similarIncidents || incident.similarIncidents.length === 0);
   return {
     ...incident,
     confidence: incident.confidence ?? incident.rootCause?.confidence,
-    similarIncidents: incident.similarIncidents ?? DEMO_SIMILAR,
-    relatedDeployments: incident.relatedDeployments ?? DEMO_RELATED,
+    similarIncidents: seedSimilar
+      ? DEMO_SIMILAR
+      : incident.similarIncidents ?? [],
+    relatedDeployments: incident.relatedDeployments ??
+      (incident.id === "INC-1042" ? DEMO_RELATED : []),
   };
 }
 
@@ -87,13 +93,25 @@ export async function approveIncident(
   id: string,
   body: { actor?: string; note?: string } = {}
 ) {
-  const res = await apiPost<{
-    already: boolean;
-    executor: string;
-    hint: string;
-    incident: Incident;
-  }>(`/api/incidents/${id}/approve`, body, {
-    signal: AbortSignal.timeout(20_000),
-  });
-  return enrichIncident(res.incident);
+  try {
+    const res = await apiPost<{
+      already: boolean;
+      executor: string;
+      hint: string;
+      incident: Incident;
+    }>(`/api/incidents/${id}/approve`, body, {
+      signal: AbortSignal.timeout(8_000),
+    });
+    return enrichIncident(res.incident);
+  } catch (err) {
+    const latest = await getIncident(id).catch(() => null);
+    if (
+      latest &&
+      (latest.policy.status === "approved" ||
+        latest.policy.status === "auto-approved")
+    ) {
+      return latest;
+    }
+    throw err;
+  }
 }

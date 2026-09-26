@@ -76,13 +76,11 @@ const NAV: NavGroup[] = [
         href: "/automation",
         label: "Automation",
         icon: Workflow,
-        stub: true,
       },
       {
         href: "/knowledge",
         label: "Knowledge",
         icon: BookOpen,
-        stub: true,
       },
       {
         href: "/settings",

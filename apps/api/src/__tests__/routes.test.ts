@@ -12,6 +12,7 @@ import type { PostgresClient, RedisClient } from "../clients/data-stores.js";
 import type { PodDto, DeploymentDto, K8sEventDto } from "../types/dto.js";
 import { ObservabilityService } from "../services/observability-service.js";
 import { RemediationPipeline } from "../services/remediation-pipeline.js";
+import { MemoryService } from "../services/memory-service.js";
 
 const pod: PodDto = {
   name: "demo-api-abc",
@@ -144,9 +145,21 @@ async function buildTestApp(k8s: KubernetesMonitorService) {
     prometheus,
     loki,
     observability: new ObservabilityService(prometheus, loki, config),
-    postgres: { health: async () => false } as unknown as PostgresClient,
-    redis: { health: async () => false } as unknown as RedisClient,
+    postgres: { health: async () => false, connected: false } as unknown as PostgresClient,
+    redis: { health: async () => false, connected: false } as unknown as RedisClient,
     remediation: new RemediationPipeline(config, k8s, bus),
+    memory: {
+      similar: async () => [],
+      overview: () => ({
+        status: "degraded",
+        postgres: false,
+        redis: false,
+        remembered: 0,
+        total: 1,
+        recent: [],
+        message: "Postgres is down",
+      }),
+    } as unknown as MemoryService,
   };
   registerControllers(app, ctx);
   await app.ready();
@@ -224,6 +237,18 @@ describe("API routes", () => {
       prometheusAvailable: false,
       lokiAvailable: false,
       service: "checkout-api",
+    });
+    await app.close();
+  });
+
+  it("GET /api/knowledge degrades without Postgres", async () => {
+    const app = await buildTestApp(fakeK8s());
+    const res = await app.inject({ method: "GET", url: "/api/knowledge" });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      status: "degraded",
+      postgres: false,
+      redis: false,
     });
     await app.close();
   });

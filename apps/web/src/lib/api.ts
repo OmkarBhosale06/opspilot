@@ -1,4 +1,7 @@
 export const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "";
+
+const SSE_BASE =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
   "http://localhost:4000";
 
@@ -111,7 +114,8 @@ async function apiJson<T>(
 }
 
 export function sseUrl(path: string): string {
-  return path.startsWith("http") ? path : `${API_BASE}${path}`;
+  if (path.startsWith("http")) return path;
+  return `${SSE_BASE}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
 export { clientLog };

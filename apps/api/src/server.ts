@@ -15,6 +15,7 @@ import { startIncidentDetector } from "./services/incident-detector.js";
 import { startInvestigationRunner } from "./services/investigation-runner.js";
 import { ObservabilityService } from "./services/observability-service.js";
 import { RemediationPipeline } from "./services/remediation-pipeline.js";
+import { MemoryService } from "./services/memory-service.js";
 import { createFnLog, createReqId, loggerOptions } from "./logging.js";
 
 export type BuildOptions = {
@@ -35,7 +36,20 @@ export async function buildServer(
   });
 
   await app.register(cors, {
-    origin: config.CORS_ORIGIN.split(",").map((s) => s.trim()),
+    origin: (origin, cb) => {
+      const allowed = new Set(
+        config.CORS_ORIGIN.split(",").map((s) => s.trim()).filter(Boolean)
+      );
+      allowed.add("http://localhost:3000");
+      allowed.add("http://127.0.0.1:3000");
+      if (!origin || allowed.has(origin)) {
+        cb(null, true);
+        return;
+      }
+      cb(null, false);
+    },
+    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Accept", "Authorization"],
   });
 
   const flog = createFnLog(app.log);
@@ -65,10 +79,12 @@ export async function buildServer(
   const prometheus = PrometheusClient.fromConfig(config, app.log);
   const loki = LokiClient.fromConfig(config, app.log);
   const observability = new ObservabilityService(prometheus, loki, config);
-  const postgres = PostgresClient.fromConfig(config);
-  const redis = RedisClient.fromConfig(config);
+  const postgres = PostgresClient.fromConfig(config, app.log);
+  const redis = RedisClient.fromConfig(config, app.log);
   await postgres.connect();
   await redis.connect();
+  const memory = new MemoryService(postgres, redis, app.log);
+  await memory.start();
 
   const ctx: AppContext = {
     config,
@@ -81,6 +97,7 @@ export async function buildServer(
     postgres,
     redis,
     remediation: new RemediationPipeline(config, k8s, bus, app.log),
+    memory,
   };
 
   await app.register(registerRoutes, { ctx });

@@ -47,10 +47,8 @@ make kind-apply
 # Phase 4: Prometheus (:9090), Loki (:3100), demo telemetry (:9101)
 make obs-up
 
-# Optional Phase 7 data plane (not wired into API yet)
-# make data-up
-# export DATABASE_URL=postgres://opspilot:opspilot@localhost:5432/opspilot
-# export REDIS_URL=redis://localhost:6379
+# Phase 7: Postgres + Redis for incident memory (API degrades to in-memory if down)
+make data-up
 
 # Terminal 1
 npm run dev:api
@@ -63,6 +61,7 @@ npm run dev:web
 - API: http://localhost:4000
 - Health: http://localhost:4000/api/health
 - Observability UI: http://localhost:3000/observability
+- Knowledge UI: http://localhost:3000/knowledge
 - Prometheus: http://localhost:9090
 - Loki: http://localhost:3100
 
@@ -80,7 +79,7 @@ make data-down
 
 - `/overview` — is production healthy?
 - `/incidents/INC-1042` — incident command center (live metrics when `make obs-up`)
-- `/observability` — Prometheus + Loki overview
+- `/knowledge` — remembered incidents + similar recall
 - `/infrastructure/pods` — live pods
 - `/deployments` — revision history
 
@@ -94,7 +93,7 @@ See [docs/architecture.md](docs/architecture.md).
 4. Prometheus / Loki — **in progress** (`make obs-up`)
 5. LangGraph agent
 6. Policy / Executor / Verifier — **started** (approve → allowlisted mutate → verify)
-7. Memory / RAG (Postgres + Redis)
+7. Memory / RAG — **started** (`make data-up`; lexical similar recall)
 
 ## Security
 

@@ -13,6 +13,7 @@ import type { LokiClient } from "../clients/loki/client.js";
 import type { PostgresClient, RedisClient } from "../clients/data-stores.js";
 import type { ObservabilityService } from "../services/observability-service.js";
 import type { RemediationPipeline } from "../services/remediation-pipeline.js";
+import type { MemoryService } from "../services/memory-service.js";
 
 export type AppContext = {
   config: Config;
@@ -25,6 +26,7 @@ export type AppContext = {
   postgres: PostgresClient;
   redis: RedisClient;
   remediation: RemediationPipeline;
+  memory: MemoryService;
 };
 
 export function registerControllers(app: FastifyInstance, ctx: AppContext) {
@@ -280,11 +282,11 @@ export function registerControllers(app: FastifyInstance, ctx: AppContext) {
       const latest = incidentStore.get(result.incident.id) ?? result.incident;
       return {
         already: result.already,
-        executor: latest.execution.status,
+        executor: latest.execution?.status ?? "queued",
         hint:
-          latest.execution.status === "blocked"
+          latest.execution?.status === "blocked"
             ? "Policy recorded. Executor is disabled."
-            : latest.execution.detail,
+            : latest.execution?.detail ?? "Policy authorized.",
         incident: latest,
       };
     }
@@ -328,7 +330,8 @@ export function registerControllers(app: FastifyInstance, ctx: AppContext) {
           message: `Incident ${request.params.id} not found`,
         });
       }
-      return incident;
+      const similarIncidents = await ctx.memory.similar(incident);
+      return { ...incident, similarIncidents };
     }
   );
 
@@ -391,6 +394,10 @@ export function registerControllers(app: FastifyInstance, ctx: AppContext) {
 
   app.get("/api/observability/status", async () => {
     return ctx.observability.status();
+  });
+
+  app.get("/api/knowledge", async () => {
+    return ctx.memory.overview();
   });
 
   app.get<{ Querystring: { service?: string } }>(

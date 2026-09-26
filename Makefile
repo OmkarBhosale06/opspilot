@@ -33,7 +33,7 @@ obs-down:
 obs-logs:
 	docker compose -f infrastructure/observability/docker-compose.yml logs -f --tail=100
 
-# Phase 7 — optional Postgres + Redis (API still in-memory until persistence is wired)
+# Phase 7 — Postgres + Redis (API hydrates incidents when reachable)
 data-up:
 	docker compose -f infrastructure/data/docker-compose.yml up -d
 

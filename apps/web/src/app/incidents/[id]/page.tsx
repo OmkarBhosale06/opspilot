@@ -128,8 +128,10 @@ export default function IncidentCommandCenterPage() {
             verification={data.verification}
             execution={data.execution}
             onApprove={async () => {
-              await approveIncident(data.id, { actor: "oncall@local" });
-              await queryClient.invalidateQueries({ queryKey: ["incident", id] });
+              const incident = await approveIncident(data.id, {
+                actor: "oncall@local",
+              });
+              queryClient.setQueryData(["incident", id], incident);
               await queryClient.invalidateQueries({ queryKey: ["incidents"] });
             }}
           />

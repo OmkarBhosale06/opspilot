@@ -1,6 +1,6 @@
 name: opspilot-data
 
-# Phase 7 persistence — optional. API stays in-memory until wired.
+# Phase 7 persistence. API hydrates incidents when this stack is reachable.
 services:
   postgres:
     image: postgres:16-alpine

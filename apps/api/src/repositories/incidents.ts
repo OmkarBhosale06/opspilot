@@ -609,10 +609,20 @@ export function buildIncident(input: CreateIncidentInput, id: string): Incident 
 
 class IncidentStore {
   private incidents = new Map<string, Incident>();
+  private writers = new Set<(incident: Incident) => void>();
 
   constructor() {
     const demo = seedInc1042();
     this.incidents.set(demo.id, demo);
+  }
+
+  onWrite(fn: (incident: Incident) => void): () => void {
+    this.writers.add(fn);
+    return () => this.writers.delete(fn);
+  }
+
+  private emit(incident: Incident): void {
+    for (const fn of this.writers) fn(incident);
   }
 
   list(): Incident[] {
@@ -632,11 +642,13 @@ class IncidentStore {
   create(input: CreateIncidentInput): Incident {
     const incident = buildIncident(input, this.nextId());
     this.incidents.set(incident.id, incident);
+    this.emit(incident);
     return incident;
   }
 
-  upsert(incident: Incident): Incident {
+  upsert(incident: Incident, options: { silent?: boolean } = {}): Incident {
     this.incidents.set(incident.id, incident);
+    if (!options.silent) this.emit(incident);
     return incident;
   }
 
@@ -655,6 +667,7 @@ class IncidentStore {
     if (!current) return undefined;
     const next = fn(current);
     this.incidents.set(id, next);
+    this.emit(next);
     return next;
   }
 
@@ -716,6 +729,7 @@ class IncidentStore {
       ],
     };
     this.incidents.set(id, incident);
+    this.emit(incident);
     return { incident, already: false };
   }
 
@@ -752,6 +766,7 @@ class IncidentStore {
       ],
     };
     this.incidents.set(id, incident);
+    this.emit(incident);
     return incident;
   }
 

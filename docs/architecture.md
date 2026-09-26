@@ -46,7 +46,10 @@ Node.js owns Kubernetes watches and fans out SSE:
    - Approve records policy, then the executor runs allowlisted `restart` or `rollback` only
    - Namespaces: `MUTATION_NAMESPACES` (default `NAMESPACE`)
    - Verifier polls Ready replicas + CrashLoop/ImagePull, then marks the incident resolved or failed
-7. Memory / RAG — Postgres + Redis (`make data-up`); persist incidents and similar recall
+7. Memory / RAG — **started**
+   - `make data-up` (Postgres `:5432`, Redis `:6379`); API tries local URLs if unset
+   - Incidents write-through to Postgres; similar recall is lexical (service + title overlap)
+   - UI: `/knowledge`
 
 ## Local dependencies by phase
 

@@ -20,6 +20,24 @@ export type MetricPoint = {
   timestamp?: number;
 };
 
+export type KnowledgeOverview = {
+  status: "live" | "degraded";
+  postgres: boolean;
+  redis: boolean;
+  remembered: number;
+  total: number;
+  recent: Array<{
+    id: string;
+    title: string;
+    service: string;
+    namespace: string;
+    status: string;
+    resolution: string;
+    updatedAt: string;
+  }>;
+  message?: string;
+};
+
 export type ObservabilityStatus = {
   status: "live" | "degraded";
   prometheus: { available: boolean; url: string };

@@ -44,9 +44,10 @@ export function RelatedAndSimilar({ incident }: { incident: Incident }) {
         </CardHeader>
         <CardContent className="space-y-2">
           {(incident.similarIncidents ?? []).map((sim) => (
-            <div
+            <Link
               key={sim.id}
-              className="rounded-md border border-border-subtle px-2.5 py-2 text-xs"
+              href={`/incidents/${encodeURIComponent(sim.id)}`}
+              className="block rounded-md border border-border-subtle px-2.5 py-2 text-xs transition-colors hover:bg-accent/40"
             >
               <div className="flex items-center gap-2">
                 <span className="mono text-muted-foreground">{sim.id}</span>
@@ -58,7 +59,7 @@ export function RelatedAndSimilar({ incident }: { incident: Incident }) {
               <div className="mt-0.5 text-[11px] text-muted-foreground">
                 Resolved via {sim.resolution}
               </div>
-            </div>
+            </Link>
           ))}
           {(incident.similarIncidents ?? []).length === 0 ? (
             <p className="text-xs text-muted-foreground">

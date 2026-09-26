@@ -218,7 +218,11 @@ export function RemediationCard({
             variant="warning"
             size="sm"
             disabled={pending || approved || rejected}
-            onClick={() => void handleApprove()}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              void handleApprove();
+            }}
           >
             {pending
               ? "Approving…"
