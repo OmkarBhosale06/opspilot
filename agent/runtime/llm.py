@@ -5,6 +5,8 @@ from functools import lru_cache
 
 from langchain_openai import ChatOpenAI
 
+from runtime.log import info
+
 
 def llm_settings() -> dict:
     return {
@@ -15,8 +17,9 @@ def llm_settings() -> dict:
 
 
 @lru_cache(maxsize=1)
-def chat_model() -> ChatOpenAI:
+def _chat_client() -> ChatOpenAI:
     settings = llm_settings()
+    info("_chat_client", "called", model=settings["model"], baseUrl=settings["base_url"])
     return ChatOpenAI(
         model=settings["model"],
         base_url=settings["base_url"],
@@ -25,3 +28,8 @@ def chat_model() -> ChatOpenAI:
         timeout=40,
         max_retries=0,
     )
+
+
+def chat_model() -> ChatOpenAI:
+    info("chat_model", "called")
+    return _chat_client()
