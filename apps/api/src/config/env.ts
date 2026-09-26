@@ -11,7 +11,7 @@ const envSchema = z.object({
   REDIS_URL: z.string().optional(),
   PROMETHEUS_URL: z.string().default("http://localhost:9090"),
   LOKI_URL: z.string().default("http://localhost:3100"),
-  AGENT_URL: z.string().default("http://localhost:8090"),
+  AGENT_URL: z.string().default("http://127.0.0.1:8090"),
   MUTATION_NAMESPACES: z.string().optional(),
   ENABLE_EXECUTOR: z.enum(["0", "1", "true", "false"]).optional(),
   VERIFY_TIMEOUT_MS: z.coerce.number().default(60_000),

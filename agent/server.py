@@ -3,6 +3,7 @@
 
 from pathlib import Path
 import json
+import socket
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
@@ -12,8 +13,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from graph import investigate
 from runtime.llm import llm_settings
 
-HOST = "127.0.0.1"
+# Bind IPv6 dual-stack so Node's localhost (::1) and 127.0.0.1 both connect.
+HOST = "::"
 PORT = 8090
+
+
+class DualStackServer(ThreadingHTTPServer):
+    address_family = socket.AF_INET6
+    allow_reuse_address = True
+
+    def server_bind(self) -> None:
+        self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+        super().server_bind()
 
 
 def _llm_reachable() -> bool:
@@ -82,8 +93,8 @@ class Handler(BaseHTTPRequestHandler):
 
 def main() -> None:
     settings = llm_settings()
-    server = ThreadingHTTPServer((HOST, PORT), Handler)
-    print(f"OpsPilot LangGraph agent listening on http://{HOST}:{PORT}")
+    server = DualStackServer((HOST, PORT), Handler)
+    print(f"OpsPilot LangGraph agent listening on http://127.0.0.1:{PORT}")
     print(f"  model: {settings['model']} via {settings['base_url']}")
     print("  GET  /health")
     print("  POST /investigate   (called by the API when an incident is created)")
