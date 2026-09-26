@@ -49,6 +49,7 @@ sim-reset:
 	chmod +x scripts/test_simulation/simulate.sh scripts/test_simulation/reset.sh
 	./scripts/test_simulation/reset.sh
 
-# Phase 5 investigation stub (API calls AGENT_URL, default :8090)
+# Phase 5 LangGraph agent (API calls AGENT_URL, default :8090)
 agent-dev:
-	python3 agent/server.py
+	@test -x agent/.venv/bin/python || (python3.12 -m venv agent/.venv && agent/.venv/bin/pip install -r agent/requirements.txt)
+	agent/.venv/bin/python agent/server.py

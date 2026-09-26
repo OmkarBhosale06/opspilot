@@ -1,17 +1,30 @@
 #!/usr/bin/env python3
-"""Phase 5 investigation HTTP stub. Replace with LangGraph + LLM later."""
+"""Phase 5 investigation server. LangGraph proposes; it does not mutate the cluster."""
 
 from pathlib import Path
 import json
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
+from urllib.request import urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from graph import investigate
+from runtime.llm import llm_settings
 
 HOST = "127.0.0.1"
 PORT = 8090
+
+
+def _llm_reachable() -> bool:
+    settings = llm_settings()
+    # OpenAI-compatible base is .../v1; Ollama tags live on the origin.
+    origin = settings["base_url"].removesuffix("/v1")
+    try:
+        with urlopen(f"{origin}/api/tags", timeout=1.5) as response:
+            return response.status == 200
+    except Exception:
+        return False
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -26,11 +39,15 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
         if path in {"/", "/health"}:
+            settings = llm_settings()
             self._json(
                 200,
                 {
                     "ok": True,
-                    "runtime": "phase5-stub",
+                    "runtime": "langgraph",
+                    "model": settings["model"],
+                    "llmBaseUrl": settings["base_url"],
+                    "llmReachable": _llm_reachable(),
                     "investigate": "POST /investigate",
                     "health": "GET /health",
                 },
@@ -48,7 +65,10 @@ class Handler(BaseHTTPRequestHandler):
             self._json(400, {"error": "invalid_json"})
             return
         if path == "/investigate":
-            self._json(200, investigate(payload))
+            try:
+                self._json(200, investigate(payload))
+            except Exception as exc:  # noqa: BLE001
+                self._json(500, {"error": "investigate_failed", "detail": str(exc)})
             return
         self._json(404, {"error": "not_found"})
 
@@ -61,8 +81,10 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
+    settings = llm_settings()
     server = ThreadingHTTPServer((HOST, PORT), Handler)
-    print(f"OpsPilot agent stub listening on http://{HOST}:{PORT}")
+    print(f"OpsPilot LangGraph agent listening on http://{HOST}:{PORT}")
+    print(f"  model: {settings['model']} via {settings['base_url']}")
     print("  GET  /health")
     print("  POST /investigate   (called by the API when an incident is created)")
     server.serve_forever()

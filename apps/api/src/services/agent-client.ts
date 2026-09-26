@@ -57,7 +57,7 @@ export class AgentClient {
           },
           pods,
         }),
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(60_000),
       });
       if (!res.ok) {
         flog.warn("AgentClient.investigate", "Agent returned non-OK", {

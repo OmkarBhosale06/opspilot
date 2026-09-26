@@ -38,7 +38,8 @@ Node.js owns Kubernetes watches and fans out SSE:
    - API: `/api/observability/*`, `/api/incidents/:id/telemetry`
    - UI: `/observability` + live error-rate/evidence on INC-1042 when backends are up
 5. LangGraph agent — **started**
-   - Stub runtime: `make agent-dev` (`http://localhost:8090`)
+   - Runtime: `make agent-dev` (`http://localhost:8090`), LangGraph observe → LLM propose
+   - Model: Ollama via `AGENT_LLM_BASE_URL` / `AGENT_LLM_MODEL` (default `qwen2.5:1.5b`)
    - API calls `AGENT_URL` on `incident.created`; falls back to local k8s investigation
    - K8s detector opens incidents from CrashLoop / ImagePull
    - Simulation: `make sim` / `make sim-reset` (`scripts/test_simulation/config.env`)

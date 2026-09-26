@@ -33,7 +33,7 @@ brew install python@3.12 poetry   # Phase 5 LangGraph agent
 | Cluster | Docker, Kind, kubectl | live pods/deployments/events |
 | Metrics/logs | Docker Compose (Prometheus, Loki) | Phase 4 observability |
 | Persistence | Postgres 16, Redis 7 (compose) | Phase 7 memory/RAG — optional now |
-| Agent | Python 3.12 + Poetry | Phase 5 LangGraph — not required yet |
+| Agent | Python 3.12 + Ollama | Phase 5 LangGraph (`make agent-dev`, model `qwen2.5:1.5b`) |
 
 ## Run locally
 
@@ -91,7 +91,7 @@ See [docs/architecture.md](docs/architecture.md).
 2. Incident Command Center — **done**
 3. Deployment snapshots — **done**
 4. Prometheus / Loki — **in progress** (`make obs-up`)
-5. LangGraph agent
+5. LangGraph agent — **started** (`make agent-dev`; proposes only, local Ollama)
 6. Policy / Executor / Verifier — **started** (approve → allowlisted mutate → verify)
 7. Memory / RAG — **started** (`make data-up`; lexical similar recall)
 
